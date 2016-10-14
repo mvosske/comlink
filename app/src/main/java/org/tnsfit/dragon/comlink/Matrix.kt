@@ -17,7 +17,8 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
         val PING =  "Ping_at_XY"
         val SEND =  "Take_this_"
         val HELLO = "Hi_Chummer"
-
+        val ANSWER = "Welcome__"
+        val MESSAGE = "Know_What:"
     }
 
     val TAG = "UDP Server"
@@ -26,6 +27,7 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
     private var mServer:DatagramSocket
     private var mRunning = false
     private val mContext: ComlinklActivity
+    private val mAddressPool = BroadcastAddressPool()
 
     init {
         mUiHandler = callback
@@ -40,6 +42,13 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
             synchronized(this@Matrix) {
                 mRunning = true;
             }
+
+            // First Time initialisation, to already be able to receive an "Answer" on "Hello"
+            if (mServer.isClosed) {
+                mServer = DatagramSocket(24322)
+            }
+
+            send(const.HELLO,"")
 
             while (mRunning) try {
                 if (mServer.isClosed) {
@@ -69,12 +78,17 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
         init {mMessage = message}
 
         override fun run() {
-            val destinationAll = getBroadcastAddress()
-            val content = mMessage.pack()
-            val broadcastPacket = DatagramPacket(content,content.size,destinationAll,24322)
+            // val destinationAll = getBroadcastAddress()
+            // val content = mMessage.pack()
+            // val broadcastPacket = DatagramPacket(content,content.size,destinationAll,24322)
             val outSocket = DatagramSocket()
             outSocket.broadcast = true
-            outSocket.send(broadcastPacket)
+
+            for (packet in mAddressPool.getPackets(mMessage.pack())) {
+                outSocket.send(packet)
+            }
+
+            // outSocket.send(broadcastPacket)
             outSocket.close()
         }
     }
@@ -85,15 +99,18 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
 
         override fun run() {
             if (NetworkInterface.getByInetAddress(mPacket.address) != null) {
-                Log.d(TAG, "soliloquy")
+                // came over Loopback, ignore if not in adb Debug Mode
                 return
             }
-            // in release should "return",. in debug let it through
+
+            mAddressPool.confirm(mPacket.address)
 
             val content = MessagePacketFactory(mPacket.data)
 
             when (content.type) {
-                const.HELLO -> mUiHandler.post(Runnable { Toast.makeText(mContext,content.message,Toast.LENGTH_SHORT).show() })
+                const.ANSWER -> return
+                const.HELLO -> send(const.ANSWER,"")
+                const.MESSAGE -> mUiHandler.post(Runnable { Toast.makeText(mContext,content.message,Toast.LENGTH_SHORT).show() })
                 const.SEND -> recieveFile(content.message)
                 const.PING -> mUiHandler.post(Runnable { mContext.ping(content.message) })
             }
@@ -127,34 +144,26 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
         }
     }
 
-    public fun startServer() {
-        DebugMe().getWirelessAdress(mContext);
-        if (mRunning) {
-            stop()
-        } else {
-            val t = Thread(Server(), "UdpBroadcstReciever")
-            t.start()
-        }
-    }
-
     fun ping (coordsString: String) {
         mContext.ping(coordsString)
         send(const.PING,coordsString)
     }
 
     public fun send(type:String, message:String) {
-        val checkOK = when (type) {
-            const.HELLO -> true // Maybe false, if its unused
-            const.SEND -> { if (message.equals("")) false else true}
-            const.PING -> {if (message.contains(",")) true else false}
-            else -> false
-        }
 
-        if (checkOK) {
-            Thread(Sender(MessagePacket(type, message))).start()
+        val packet = MessagePacket(type, message)
+
+        if (packet.checkOK()) {
+            Thread(Sender(packet)).start()
         } else {
             Log.e(TAG, "Wrong call to Matrix.send()")
         }
+    }
+
+    public fun startServer() {
+        if (mRunning) return
+        val t = Thread(Server(), "UdpBroadcstReciever")
+        t.start()
     }
 
     public fun stop() {
@@ -166,7 +175,7 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
 
     private fun getBroadcastAddress(): InetAddress {
         val interfaces = NetworkInterface.getNetworkInterfaces()
-        var bcast: InetAddress = Inet4Address.getLoopbackAddress() as InetAddress
+        var bcast: InetAddress = Inet4Address.getByAddress(byteArrayOf(127,0,0,1))
 
         for (card in interfaces) {
             if (!card.isUp) continue

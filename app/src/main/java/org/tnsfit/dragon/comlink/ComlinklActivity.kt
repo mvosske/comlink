@@ -148,7 +148,7 @@ class ComlinklActivity : Activity() {
     }
 
     fun sendAndHideTextField(message: String) {
-        mMatrix.send(Matrix.const.HELLO,message)
+        mMatrix.send(Matrix.const.MESSAGE,message)
 
         val view = this.getCurrentFocus();
         if (view != null) {
