@@ -1,7 +1,8 @@
-package org.tnsfit.dragon.comlink
+package org.tnsfit.dragon.comlink.matrix
 
 /**
  * Created by dragon on 08.10.16.
+ *
  */
 
 
@@ -16,11 +17,11 @@ data class MessagePacket (val type:String, val message:String) {
 
     fun checkOK(): Boolean {
         return when (type) {
-            Matrix.const.SEND,
-            Matrix.const.MESSAGE -> { if (message.equals("")) false else true}
-            Matrix.const.PING -> {if (message.contains(",")) true else false}
-            Matrix.const.HELLO,
-            Matrix.const.ANSWER -> { true }
+            MatrixConnection.SEND,
+            MatrixConnection.MESSAGE -> { if (message.equals("")) false else true}
+            MatrixConnection.PING -> {if (message.contains(",")) true else false}
+            MatrixConnection.HELLO,
+            MatrixConnection.ANSWER -> { true }
             else -> false
         }
     }
@@ -31,14 +32,11 @@ fun MessagePacketFactory(input:ByteArray): MessagePacket {
     val stringed = input.toString(Charsets.UTF_8)
     val type:String = stringed.subSequence(0,10).toString()
     val messageEnding = stringed.indexOf(';')
-    var  message = ""
 
     if (messageEnding > 10) {
-        message = stringed.substring(10,messageEnding)
+        return MessagePacket(type, stringed.substring(10,messageEnding))
     } else {
-        return MessagePacket("","")
+        return MessagePacket("", "")
     }
-    return MessagePacket(type,message)
-
 }
 
