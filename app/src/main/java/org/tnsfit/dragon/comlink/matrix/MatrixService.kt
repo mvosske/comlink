@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.support.v4.app.NotificationManagerCompat
+import org.greenrobot.eventbus.EventBus
 import org.tnsfit.dragon.comlink.misc.AppConstants
 
 /**
@@ -26,6 +27,8 @@ class MatrixService: Service() {
 	private val notificationManager: NotificationManagerCompat by lazy { NotificationManagerCompat.from(applicationContext) }
 	private val notificationId = AppConstants.NOTIFICATION_ID_SERVICE_ALIVE
 
+	private val eventBus = EventBus.getDefault()
+
 	private val notificationActionReceiver = object : BroadcastReceiver() {
 		override fun onReceive(context: Context, intent: Intent) {
 			intent.action?.let { action ->
@@ -44,6 +47,8 @@ class MatrixService: Service() {
 
 		this.registerReceiver(this.notificationActionReceiver, ServiceNotification.filter)
 		this.startSocketOrClient()
+
+		this.eventBus.post(ServiceStartedEvent("Hooray"))
 	}
 
 	override fun onDestroy() {

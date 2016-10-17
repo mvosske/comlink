@@ -10,9 +10,9 @@ import android.widget.TextView
  *
  */
 
-class SendText(c: ComlinklActivity): TextView.OnEditorActionListener {
+class SendText(c: ComlinkActivity): TextView.OnEditorActionListener {
 
-    private var mMaster: ComlinklActivity?
+    private var mMaster: ComlinkActivity?
 
     init {
         mMaster = c

@@ -10,18 +10,22 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
-import android.widget.EditText
-import android.widget.ImageView
-import android.widget.RelativeLayout
+import android.widget.*
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
+import org.tnsfit.dragon.comlink.matrix.MatrixEventListener
 import org.tnsfit.dragon.comlink.matrix.MatrixService
+import org.tnsfit.dragon.comlink.matrix.ServiceStartedEvent
 import org.tnsfit.dragon.comlink.misc.AppConstants
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 
-class ComlinklActivity : Activity() {
+class ComlinkActivity : Activity(), MatrixEventListener {
+
+	private val eventBus = EventBus.getDefault()
 
     private val mMatrix = Matrix(Handler(),this)
     private val mSocketManager = SocketManager()
@@ -42,7 +46,7 @@ class ComlinklActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_comlinkl)
+        setContentView(R.layout.activity_comlink)
 
         findViewById(R.id.exit_button).setOnClickListener({ finish() })
         findViewById(R.id.send_image).setOnClickListener(sendListener)
@@ -71,6 +75,8 @@ class ComlinklActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+		if (!this.eventBus.isRegistered(this))
+			this.eventBus.register(this)
         mMatrix.startServer()
     }
 
@@ -169,9 +175,15 @@ class ComlinklActivity : Activity() {
     override fun onStop(){
         super.onStop()
         mMatrix.stop()
+		this.eventBus.unregister(this)
     }
 
-    override fun onSaveInstanceState(outState: Bundle?) {
+	@Subscribe(threadMode = ThreadMode.MAIN) // eventBus can handle thread switching out of the box
+	override fun onServiceStartedEvent(event: ServiceStartedEvent) {
+		Toast.makeText(this, event.arbitraryData, Toast.LENGTH_SHORT).show()
+	}
+
+	override fun onSaveInstanceState(outState: Bundle?) {
         super.onSaveInstanceState(outState)
 
         if (mCurrentHandoutURI != "") {

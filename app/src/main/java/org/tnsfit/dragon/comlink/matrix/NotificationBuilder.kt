@@ -9,7 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Point
 import android.support.v4.app.NotificationCompat
-import org.tnsfit.dragon.comlink.ComlinklActivity
+import org.tnsfit.dragon.comlink.ComlinkActivity
 import org.tnsfit.dragon.comlink.R
 import org.tnsfit.dragon.comlink.misc.AppConstants
 
@@ -27,7 +27,7 @@ object ServiceNotification {
 	fun buildNotification(context: Context): NotificationCompat.Builder {
 
 		val openAppIntent = PendingIntent.getActivity(context,
-				AppConstants.INTENT_REQUEST_NOTIFICATION_OPEN, Intent(context, ComlinklActivity::class.java), 0)
+				AppConstants.INTENT_REQUEST_NOTIFICATION_OPEN, Intent(context, ComlinkActivity::class.java), 0)
 		val deleteIntent = PendingIntent.getBroadcast(context,
 				AppConstants.INTENT_REQUEST_NOTIFICATION_DISMISS, Intent(NOTIFICATION_ACTION_DISMISS), 0)
 
