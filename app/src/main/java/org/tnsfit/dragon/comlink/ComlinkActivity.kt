@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -14,21 +13,17 @@ import android.widget.*
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import org.tnsfit.dragon.comlink.matrix.MatrixEventListener
-import org.tnsfit.dragon.comlink.matrix.MatrixService
-import org.tnsfit.dragon.comlink.matrix.ServiceStartedEvent
+import org.tnsfit.dragon.comlink.matrix.*
 import org.tnsfit.dragon.comlink.misc.AppConstants
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 
-class ComlinkActivity : Activity(), MatrixEventListener {
+class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, ImageEventListener {
 
 	private val eventBus = EventBus.getDefault()
 
-    private val mMatrix = Matrix(Handler(),this)
-    private val mSocketManager = SocketManager()
     private val mSendTextListener = SendText(this)
     private val mPingManager = PingManager()
 
@@ -53,11 +48,11 @@ class ComlinkActivity : Activity(), MatrixEventListener {
         findViewById(R.id.send_text).setOnClickListener({ findViewById(R.id.send_text_controls).visibility = View.VISIBLE })
 
         findViewById(R.id.send_image).setOnLongClickListener {
-            fillImage(File(getExternalFilesDir(null),"handout"))
+            onImageEvent(Uri.fromFile(File(getExternalFilesDir(null),"handout")))
             true // aka return true
         }
 
-        val pingListener = PingListener(mMatrix)
+        val pingListener = PingListener()
         val textField = (findViewById(R.id.sendTextEdit) as EditText)
 
         textField.setOnEditorActionListener (mSendTextListener)
@@ -65,19 +60,16 @@ class ComlinkActivity : Activity(), MatrixEventListener {
         findViewById(R.id.imageFrame).setOnTouchListener(pingListener)
         findViewById(R.id.imageFrame).setOnLongClickListener(pingListener)
 
-        //val i = Intent(applicationContext, MatrixService::class.java )
-        //bindService(i,MatrixServiceConnection(), Context.BIND_ADJUST_WITH_ACTIVITY)
-		MatrixService.start(this)
+		MatrixService.start(Application@this)
 
         mCurrentHandoutURI = savedInstanceState?.getString("HandoutURI") ?: ""
-        if (mCurrentHandoutURI != "") fillImage(Uri.parse(mCurrentHandoutURI))
+        if (mCurrentHandoutURI != "") onImageEvent(Uri.parse(mCurrentHandoutURI))
     }
 
     override fun onStart() {
         super.onStart()
 		if (!this.eventBus.isRegistered(this))
 			this.eventBus.register(this)
-        mMatrix.startServer()
     }
 
     fun readBytes(inputStream: InputStream): ByteArray {
@@ -100,42 +92,32 @@ class ComlinkActivity : Activity(), MatrixEventListener {
         return byteBuffer.toByteArray()
     }
 
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if ((requestCode == 1) && (resultCode == Activity.RESULT_OK)) {
+        if ((requestCode == AppConstants.INTENT_REQUEST_CONTENT) && (resultCode == Activity.RESULT_OK)) {
             val imageUri = data?.data ?: return
-			val iv = findViewById(R.id.imageView) as ImageView
             val button = findViewById(R.id.send_image) as Button
 
-            iv.setImageURI(imageUri)
-            mCurrentHandoutURI = imageUri.toString()
-
-            mSendAgent = mSendAgent?.recycle() ?: SendAgentAsyncTask(button,mSocketManager)
+            mSendAgent = mSendAgent?.recycle() ?: SendAgentAsyncTask(button)
             mSendAgent?.execute(readBytes(contentResolver.openInputStream(imageUri)))
-            mMatrix.send(Matrix.const.SEND,"handout")
+            // ToDo move AsyncTask to Service as pure Thread
+            eventBus.post(MessagePacket(MatrixConnection.SEND,"handout"))
 
         } else {
             super.onActivityResult(requestCode, resultCode, data)
         }
     }
 
-    fun ping(message: String) {
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    override fun onPingEvent(event: PingEvent) {
         val frame = findViewById(R.id.imageFrame) as RelativeLayout
         val params = RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 RelativeLayout.LayoutParams.WRAP_CONTENT)
-
         try {
-            val coords = message.split(",", limit = 2)
-            val percentX: Int = coords[0].toInt()
-            val percentY: Int = coords[1].toInt()
-
-            val x: Int = ((frame.width * percentX) / 100)
-            val y: Int = ((frame.height * percentY) / 100)
-
-            params.topMargin = y - 50
-            params.leftMargin = x - 50
-
+            val newX: Int = ((frame.width * event.x) / 100)
+            val newY: Int = ((frame.height * event.y) / 100)
+            params.topMargin = newY - 50
+            params.leftMargin = newX - 50
             mPingManager.place(this,frame,params)
 
         } catch (e: NumberFormatException) {
@@ -144,20 +126,14 @@ class ComlinkActivity : Activity(), MatrixEventListener {
         }
     }
 
-    fun fillImage (file: File) {
-        if (file.isFile) {
-            fillImage(Uri.fromFile(file))
-            //(findViewById(R.id.imageView) as ImageView).setImageDrawable(Drawable.createFromPath(file.absolutePath))
-        }
-    }
-
-    private fun fillImage(uriOfImage: Uri) {
-        (findViewById(R.id.imageView) as ImageView).setImageURI(uriOfImage)
-        mCurrentHandoutURI = uriOfImage.toString()
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    override fun onImageEvent(eventUri: Uri) {
+        (findViewById(R.id.imageView) as ImageView).setImageURI(eventUri)
+        mCurrentHandoutURI = eventUri.toString()
     }
 
     fun sendAndHideTextField(message: String) {
-        mMatrix.send(Matrix.const.MESSAGE,message)
+        eventBus.post(MessagePacket(MatrixConnection.MESSAGE,message))
 
         val view = this.currentFocus
         if (view != null) {
@@ -168,18 +144,13 @@ class ComlinkActivity : Activity(), MatrixEventListener {
         (findViewById(R.id.send_text_controls) as ViewGroup).visibility = View.GONE
     }
 
-    fun getSocketManager(): SocketManager {
-        return mSocketManager
-    }
-
     override fun onStop(){
         super.onStop()
-        mMatrix.stop()
 		this.eventBus.unregister(this)
     }
 
 	@Subscribe(threadMode = ThreadMode.MAIN) // eventBus can handle thread switching out of the box
-	override fun onServiceStartedEvent(event: ServiceStartedEvent) {
+	override fun onMessageEvent(event: MessageEvent) {
 		Toast.makeText(this, event.arbitraryData, Toast.LENGTH_SHORT).show()
 	}
 
@@ -193,7 +164,7 @@ class ComlinkActivity : Activity(), MatrixEventListener {
 
     override fun onDestroy() {
         super.onDestroy()
-        mSendAgent?.cancel(true)
+        mSendAgent?.kill()
         mSendTextListener.kill()
     }
 }

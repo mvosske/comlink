@@ -1,4 +1,4 @@
-package org.tnsfit.dragon.comlink
+package org.tnsfit.dragon.comlink.matrix
 
 import java.net.DatagramPacket
 import java.net.InetAddress
@@ -30,8 +30,7 @@ class BroadcastAddressPool {
 
     fun isNetworkOf(testIp: InetAddress, netInterface: InterfaceAddress): Boolean {
         val ip = testIp.address
-        val bcast = netInterface.broadcast?.address
-        if (bcast == null) return false
+        val bcast: ByteArray = netInterface.broadcast?.address ?: return false
         if (bcast.size != ip.size) return false
 
         var prefix = netInterface.networkPrefixLength.toInt()
@@ -45,7 +44,7 @@ class BroadcastAddressPool {
         }
 
         var difference = 0
-        var mask = 0
+        var mask: Int
 
         for (i in 0..bcast.size-1) {
             val intIP = ip[i].toInt()
@@ -67,12 +66,12 @@ class BroadcastAddressPool {
         val result = LinkedList<DatagramPacket>()
 
         if (mConfirmedAddress != null) {
-            result.add(DatagramPacket(message,message.size,mConfirmedAddress,24322))
+            result.add(DatagramPacket(message, message.size, mConfirmedAddress, 24322))
             return result
         }
 
         for (address in mAllAddresses) {
-            result.add(DatagramPacket(message,message.size,address,24322))
+            result.add(DatagramPacket(message, message.size, address, 24322))
         }
 
         return result

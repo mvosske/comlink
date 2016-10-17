@@ -3,7 +3,7 @@ package org.tnsfit.dragon.comlink
 import android.os.AsyncTask
 import android.util.Log
 import android.widget.Button
-import java.io.*
+import java.io.IOException
 import java.net.*
 import java.util.*
 
@@ -12,59 +12,48 @@ import java.util.*
  *
  */
 
-class SendAgentAsyncTask(button: Button, socketManager: SocketManager, server: ServerSocket = ServerSocket()): AsyncTask<ByteArray, Int, Int>() {
+class SendAgentAsyncTask(private val button: Button, private val server: ServerSocket = ServerSocket()): AsyncTask<ByteArray, Int, Int>() {
 
-    private val mButton: Button
-    private val mWorker: MutableList<Runnable> = ArrayList<Runnable>()
-    private val mServer: ServerSocket
-    private val mSocketManager: SocketManager
+    private val mSockets: MutableList<Socket> = ArrayList<Socket>()
 
-    init {
-        mButton = button
-        mServer = server
-        mSocketManager = socketManager
-    }
-
-    private inner class Transfer(data: ByteArray, socket: Socket): Runnable {
-        val mSocket:Socket
-        val mData: ByteArray
+    private inner class Transfer(private val data: ByteArray, private val socket: Socket): Runnable {
+        // ToDo Outsource this (individual Transfer) to MatrixService
 
         init {
-            mSocket = socket
-            mSocketManager.add(mSocket)
-            mData = data
+            synchronized(this@SendAgentAsyncTask) {
+                mSockets.add(socket)
+            }
         }
         override fun run() {
 
-            val outStream = mSocket.outputStream
+            val outStream = socket.outputStream
             try {
-                outStream.write(mData)
+                outStream.write(data)
                 outStream.flush()
                 outStream.close()
-                mSocket.close()
-                mSocketManager.remove(mSocket)
+                socket.close()
             } catch (ioe: IOException) {
                 Log.e("SendAgentThread", "Something was Wrong: "+ioe.message)
             } finally {
-                oneJobFinished(this)
+                oneJobFinished(socket)
             }
         }
     }
 
     override fun onPreExecute() {
-        mButton.text = "0 x gesendet"
-        mButton.setOnClickListener {
+        button.text = "0 x gesendet"
+        button.setOnClickListener {
             if (!isCancelled) {
-                mButton.text = "Transfer Abbruch.."
-                mButton.isEnabled = false
-                cancel(false)
+                button.text = "Warte auf Abbruch.."
+                button.isEnabled = false
+                cancel(true)
             }
         }
 
-        if (!mServer.isBound) {
-            mServer.reuseAddress = true
-            mServer.soTimeout = 6000
-            mServer.bind(InetSocketAddress(24321))
+        if (!server.isBound) {
+            server.reuseAddress = true
+            server.soTimeout = 6000
+            server.bind(InetSocketAddress(24321))
         }
     }
 
@@ -75,22 +64,18 @@ class SendAgentAsyncTask(button: Button, socketManager: SocketManager, server: S
 
         while (!isCancelled) try {
 
-            val socket = mServer.accept()
-            val worker = Transfer(theStream,socket)
-            synchronized(this) {
-                mWorker.add(worker)
-            }
-            Thread(worker).start()
+            val socket = server.accept()
+            Thread(Transfer(theStream,socket)).start()
             publishProgress(++count)
 
         } catch (ie: InterruptedException) {
-            mServer.close()
+            server.close() // seems never to happen
         } catch (so: SocketException) {
             return count
         } catch (timeout: SocketTimeoutException) {
             // expected to occur, continue loop till cancelled
         } catch (ioe: IOException) {
-            ioe.printStackTrace()
+            ioe.printStackTrace() // unknown if it even gets thrown
         }
 
         return count
@@ -98,39 +83,46 @@ class SendAgentAsyncTask(button: Button, socketManager: SocketManager, server: S
 
     override fun onProgressUpdate(vararg values: Int?) {
         val number = (values[0] ?: 0).toString()
-        mButton.text = number + " x ausgeliefert."
+        button.text = number + " x ausgeliefert."
     }
 
     override fun onCancelled(result: Int?) {
-        done()
+        if (mSockets.count() == 0) done()
     }
 
     override fun onPostExecute(result: Int?) {
-        done()
+        // only happens when server-socket gets closed but Async Task not cancelled
     }
 
-    private fun oneJobFinished(job: Runnable) {
+    private fun oneJobFinished(socket: Socket) {
         synchronized(this) {
-            mWorker.remove(job)
-            if (isCancelled && (mWorker.count() == 0)) {
-                mServer.close()
-            }
-            if (mSocketManager.isClosed()) {
-                cancel(true)
-                mServer.close()
+            mSockets.remove(socket)
+
+            if (isCancelled && (mSockets.count() == 0)) {
+                server.close()
+                done()
             }
         }
     }
 
     private fun done() {
-        mButton.text = "Send File"
-        val l = (mButton.context as ComlinkActivity).sendListener
-        mButton.setOnClickListener(l)
-        mButton.isEnabled = true
+        button.text = "Send File"
+        val l = (button.context as ComlinkActivity).sendListener
+        button.setOnClickListener(l)
+        button.isEnabled = true
     }
 
     fun recycle(): SendAgentAsyncTask {
-        val newServer = if (mServer.isClosed) ServerSocket() else mServer
-        return SendAgentAsyncTask(mButton,mSocketManager,newServer)
+        val newServer = if (server.isClosed) ServerSocket() else server
+        return SendAgentAsyncTask(button,newServer)
+    }
+
+    fun kill () {
+        synchronized(this) {
+            server.close()
+            for (socket in mSockets) {
+                socket.close()
+            }
+        }
     }
 }

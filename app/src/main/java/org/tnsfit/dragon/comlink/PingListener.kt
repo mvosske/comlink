@@ -2,17 +2,20 @@ package org.tnsfit.dragon.comlink
 
 import android.view.MotionEvent
 import android.view.View
+import org.greenrobot.eventbus.EventBus
+import org.tnsfit.dragon.comlink.matrix.MatrixConnection
+import org.tnsfit.dragon.comlink.matrix.MessagePacket
+import org.tnsfit.dragon.comlink.matrix.PingEvent
 
 /**
  * Created by dragon on 08.10.16.
  *
  */
 
-class PingListener(matrix: Matrix): View.OnLongClickListener, View.OnTouchListener {
+class PingListener(): View.OnLongClickListener, View.OnTouchListener {
 
-    private val mMatrix: Matrix
-    init{
-        mMatrix = matrix
+    private val eventBus: EventBus by lazy {
+        EventBus.getDefault()
     }
 
     private var mLastTouchX:Int=50
@@ -28,7 +31,10 @@ class PingListener(matrix: Matrix): View.OnLongClickListener, View.OnTouchListen
     }
 
     override fun onLongClick(v: View?): Boolean {
-        mMatrix.ping(mLastTouchX.toString()+","+mLastTouchY.toString())
+        eventBus.post(PingEvent(mLastTouchX,mLastTouchY))
+
+        val coordString = mLastTouchX.toString()+","+mLastTouchY.toString()
+        eventBus.post(MessagePacket(MatrixConnection.PING,coordString))
         return true
     }
 }

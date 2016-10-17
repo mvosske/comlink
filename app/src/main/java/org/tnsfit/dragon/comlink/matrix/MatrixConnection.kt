@@ -1,8 +1,9 @@
-package org.tnsfit.dragon.comlink
+package org.tnsfit.dragon.comlink.matrix
 
-import android.os.Handler
+import android.net.Uri
 import android.util.Log
-import android.widget.Toast
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
 import java.io.*
 import java.net.*
 
@@ -11,9 +12,9 @@ import java.net.*
  *
  */
 
-class Matrix (callback: Handler, context: ComlinkActivity) {
+class MatrixConnection(context: MatrixService): SendEventListener {
 
-    object const {
+    companion object {
         val PING =  "Ping_at_XY"
         val SEND =  "Take_this_"
         val HELLO = "Hi_Chummer"
@@ -23,23 +24,21 @@ class Matrix (callback: Handler, context: ComlinkActivity) {
 
     val TAG = "UDP Server"
 
-    private val mUiHandler:Handler
-    private var mServer:DatagramSocket
+    private var mServer: DatagramSocket
     private var mRunning = false
-    private val mContext: ComlinkActivity
+    private val mContext: MatrixService
     private val mAddressPool = BroadcastAddressPool()
+    private val eventBus = EventBus.getDefault()
 
     init {
-        mUiHandler = callback
         mServer = DatagramSocket(24322)
         mServer.setBroadcast(true)
         mContext = context
-
     }
 
-    public inner class Server: Runnable {
+    inner class Server: Runnable {
         override fun run() {
-            synchronized(this@Matrix) {
+            synchronized(this@MatrixConnection) {
                 mRunning = true;
             }
 
@@ -48,7 +47,7 @@ class Matrix (callback: Handler, context: ComlinkActivity) {
                 mServer = DatagramSocket(24322)
             }
 
-            send(const.HELLO,"")
+            send(HELLO,"")
 
             while (mRunning) try {
                 if (mServer.isClosed) {
@@ -56,12 +55,12 @@ class Matrix (callback: Handler, context: ComlinkActivity) {
                 }
 
                 val buffer = ByteArray(512)
-                val receivePacket = DatagramPacket(buffer,buffer.size)
+                val receivePacket = DatagramPacket(buffer, buffer.size)
                 mServer.receive(receivePacket)
 
                 Thread(MessageProcessor(receivePacket)).start()
 
-            } catch (se:SocketException) {
+            } catch (se: SocketException) {
                 if (se.message.equals("Socket closed") && !mRunning) {
                     Log.d(TAG, "Socket closed as expected")
                 } else {
@@ -73,59 +72,48 @@ class Matrix (callback: Handler, context: ComlinkActivity) {
         }
     }
 
-    public inner class Sender(message: MessagePacket): Runnable {
-        private val mMessage: MessagePacket
-        init {mMessage = message}
-
+    inner class Sender(private val message: MessagePacket): Runnable {
         override fun run() {
-            // val destinationAll = getBroadcastAddress()
-            // val content = mMessage.pack()
-            // val broadcastPacket = DatagramPacket(content,content.size,destinationAll,24322)
             val outSocket = DatagramSocket()
             outSocket.broadcast = true
 
-            for (packet in mAddressPool.getPackets(mMessage.pack())) {
+            for (packet in mAddressPool.getPackets(message.pack())) {
                 outSocket.send(packet)
             }
-
-            // outSocket.send(broadcastPacket)
             outSocket.close()
         }
     }
 
-    private inner class MessageProcessor(packet:DatagramPacket): Runnable {
-        private val mPacket: DatagramPacket
-        init {mPacket = packet}
-
+    private inner class MessageProcessor(private val packet: DatagramPacket): Runnable {
         override fun run() {
-            if (NetworkInterface.getByInetAddress(mPacket.address) != null) {
+            if (NetworkInterface.getByInetAddress(packet.address) != null) {
                 // came over Loopback, ignore if not in adb Debug Mode
                 return
             }
 
-            mAddressPool.confirm(mPacket.address)
+            mAddressPool.confirm(packet.address)
 
-            val content = MessagePacketFactory(mPacket.data)
+            val content = MessagePacketFactory(packet.data)
 
             when (content.type) {
-                const.ANSWER -> return
-                const.HELLO -> send(const.ANSWER,"")
-                const.MESSAGE -> mUiHandler.post(Runnable { Toast.makeText(mContext,content.message,Toast.LENGTH_SHORT).show() })
-                const.SEND -> recieveFile(content.message)
-                const.PING -> mUiHandler.post(Runnable { mContext.ping(content.message) })
+                ANSWER -> return
+                HELLO -> send(ANSWER,"")
+                MESSAGE -> eventBus.post(MessageEvent(content.message))
+                SEND -> recieveFile(content.message)
+                PING -> receivePing(content.message)
             }
         }
 
         private fun recieveFile(message: String) {
             val outFile = File(mContext.getExternalFilesDir(null), message)
             try {
-                val clientSocket = Socket(mPacket.address,24321)
-                mContext.getSocketManager().add(clientSocket)
+                val clientSocket = Socket(packet.address, 24321)
+                mContext.registerSocket(clientSocket)
                 val inStream: BufferedInputStream = clientSocket.inputStream.buffered()
                 val outStream = BufferedOutputStream(FileOutputStream(outFile, false))
 
                 val buffer = ByteArray(8192)
-                var len = 0
+                var len: Int
 
                 while (true) {
                     len = inStream.read(buffer)
@@ -136,23 +124,27 @@ class Matrix (callback: Handler, context: ComlinkActivity) {
                 outStream.flush()
                 outStream.close()
                 clientSocket.close()
-                mContext.getSocketManager().remove(clientSocket)
+                mContext.unregisterSocket(clientSocket)
             } catch (e: IOException) {
                 // ToDo Toast Info and let it fail
             }
-            mUiHandler.post(Runnable { mContext.fillImage(outFile) })
+            eventBus.post(ImageEvent(Uri.fromFile(outFile)))
         }
+
+        fun receivePing(coordsString: String) {
+            val coords = coordsString.split(",", limit = 2)
+            val percentX: Int = coords[0].toInt()
+            val percentY: Int = coords[1].toInt()
+            eventBus.post(PingEvent(percentX, percentY))
+        }
+
     }
 
-    fun ping (coordsString: String) {
-        mContext.ping(coordsString)
-        send(const.PING,coordsString)
+    fun send(type:String, message:String) {
+        send(MessagePacket(type, message))
     }
 
-    public fun send(type:String, message:String) {
-
-        val packet = MessagePacket(type, message)
-
+    fun send(packet: MessagePacket) {
         if (packet.checkOK()) {
             Thread(Sender(packet)).start()
         } else {
@@ -160,32 +152,22 @@ class Matrix (callback: Handler, context: ComlinkActivity) {
         }
     }
 
-    public fun startServer() {
+    fun startServer() {
         if (mRunning) return
         val t = Thread(Server(), "UdpBroadcstReciever")
         t.start()
     }
 
-    public fun stop() {
+    fun stop() {
         synchronized(this) {
             mRunning = false
             if (!mServer.isClosed) mServer.close()
         }
     }
 
-    private fun getBroadcastAddress(): InetAddress {
-        val interfaces = NetworkInterface.getNetworkInterfaces()
-        var bcast: InetAddress = Inet4Address.getByAddress(byteArrayOf(127,0,0,1))
-
-        for (card in interfaces) {
-            if (!card.isUp) continue
-            if (card.name.contains("wlan",true)) {
-                val wlanInterfaces = card.interfaceAddresses
-                for (wlanX in wlanInterfaces) {
-                    if (wlanX.broadcast is Inet4Address) bcast = wlanX.getBroadcast()
-                }
-            }
-        }
-        return bcast
+    @Subscribe
+    override fun onSendEvent(messagePacket: MessagePacket) {
+        // ToDo Change to "threadMode = ThreadMode.ASYNC" and send without additional Threading
+        send(messagePacket)
     }
 }
