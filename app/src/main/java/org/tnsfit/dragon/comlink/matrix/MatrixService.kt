@@ -23,29 +23,41 @@ class MatrixService: Service() {
 		}
 	}
 
+	private val notificationManager: NotificationManagerCompat by lazy { NotificationManagerCompat.from(applicationContext) }
+	private val notificationId = AppConstants.NOTIFICATION_ID_SERVICE_ALIVE
+
 	private val notificationActionReceiver = object : BroadcastReceiver() {
 		override fun onReceive(context: Context, intent: Intent) {
 			intent.action?.let { action ->
-				if (action == ServiceNotification.NOTIFICATION_ACTION_DISMISS)
+				if (action == ServiceNotification.NOTIFICATION_ACTION_DISMISS) {
+					this@MatrixService.notificationManager.cancel(notificationId)
 					this@MatrixService.stopSelf()
+				}
 			}
 		}
 	}
 
-	private val notificationManager: NotificationManagerCompat by lazy { NotificationManagerCompat.from(applicationContext) }
-
 	override fun onCreate() {
 		super.onCreate()
-		this.notificationManager.notify(AppConstants.NOTIFICATION_ID_SERVICE_ALIVE,
+		this.notificationManager.notify(notificationId,
 				ServiceNotification.buildNotification(this.applicationContext).build())
 
 		this.registerReceiver(this.notificationActionReceiver, ServiceNotification.filter)
+		this.startSocketOrClient()
 	}
 
 	override fun onDestroy() {
-		// cleanup
 		this.unregisterReceiver(this.notificationActionReceiver)
+		this.cleanupSocketOrClient()
 		super.onDestroy()
+	}
+
+	private fun startSocketOrClient() {
+// TODO
+	}
+
+	private fun cleanupSocketOrClient() {
+// TODO
 	}
 
 	override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY

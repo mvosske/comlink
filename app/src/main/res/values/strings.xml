@@ -3,4 +3,7 @@
 
     <string name="exit_button">Exit</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
+
+	<string name="matrix_service_notification_title">Matrix Verbindung</string>
+	<string name="matrix_service_notification_action_shutdown">Auf Schleichfahrt gehen</string>
 </resources>

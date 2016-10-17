@@ -3,7 +3,6 @@ package org.tnsfit.dragon.comlink
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -11,8 +10,12 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
-import android.widget.*
-
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.RelativeLayout
+import org.tnsfit.dragon.comlink.matrix.MatrixService
+import org.tnsfit.dragon.comlink.misc.AppConstants
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -28,11 +31,11 @@ class ComlinklActivity : Activity() {
     private var mSendAgent: SendAgentAsyncTask? = null
     private var mCurrentHandoutURI = ""
 
-    val sendListerner: View.OnClickListener by lazy {
+    val sendListener: View.OnClickListener by lazy {
         View.OnClickListener {
             val i = Intent(Intent.ACTION_GET_CONTENT)
             i.type = "*/*"
-            startActivityForResult(i, 1) // "1" should be a constant, maybe
+            startActivityForResult(i, AppConstants.INTENT_REQUEST_CONTENT)
         }
     }
 
@@ -42,8 +45,8 @@ class ComlinklActivity : Activity() {
         setContentView(R.layout.activity_comlinkl)
 
         findViewById(R.id.exit_button).setOnClickListener({ finish() })
-        findViewById(R.id.send_image).setOnClickListener(sendListerner)
-        findViewById(R.id.send_text).setOnClickListener(View.OnClickListener { findViewById(R.id.send_text_controls).visibility = View.VISIBLE })
+        findViewById(R.id.send_image).setOnClickListener(sendListener)
+        findViewById(R.id.send_text).setOnClickListener({ findViewById(R.id.send_text_controls).visibility = View.VISIBLE })
 
         findViewById(R.id.send_image).setOnLongClickListener {
             fillImage(File(getExternalFilesDir(null),"handout"))
@@ -60,9 +63,10 @@ class ComlinklActivity : Activity() {
 
         //val i = Intent(applicationContext, MatrixService::class.java )
         //bindService(i,MatrixServiceConnection(), Context.BIND_ADJUST_WITH_ACTIVITY)
+		MatrixService.start(this)
 
         mCurrentHandoutURI = savedInstanceState?.getString("HandoutURI") ?: ""
-        if (!mCurrentHandoutURI.equals("")) fillImage(Uri.parse(mCurrentHandoutURI))
+        if (mCurrentHandoutURI != "") fillImage(Uri.parse(mCurrentHandoutURI))
     }
 
     override fun onStart() {
@@ -77,7 +81,7 @@ class ComlinklActivity : Activity() {
             val bufferSize = 1024
             val buffer = ByteArray(bufferSize)
 
-            var len = 0
+            var len: Int
             while (true) {
                 len = inputStream.read(buffer)
                 if (len == -1) break
@@ -93,9 +97,8 @@ class ComlinklActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if ((requestCode == 1) && (resultCode == Activity.RESULT_OK)) {
-            val imageUri = data?.data
-            if (imageUri == null) return
-            val iv = findViewById(R.id.imageView) as ImageView
+            val imageUri = data?.data ?: return
+			val iv = findViewById(R.id.imageView) as ImageView
             val button = findViewById(R.id.send_image) as Button
 
             iv.setImageURI(imageUri)
@@ -150,11 +153,11 @@ class ComlinklActivity : Activity() {
     fun sendAndHideTextField(message: String) {
         mMatrix.send(Matrix.const.MESSAGE,message)
 
-        val view = this.getCurrentFocus();
+        val view = this.currentFocus
         if (view != null) {
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
-        }
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
+		}
         (findViewById(R.id.sendTextEdit) as EditText).text.clear()
         (findViewById(R.id.send_text_controls) as ViewGroup).visibility = View.GONE
     }
@@ -171,7 +174,7 @@ class ComlinklActivity : Activity() {
     override fun onSaveInstanceState(outState: Bundle?) {
         super.onSaveInstanceState(outState)
 
-        if (!mCurrentHandoutURI.equals("")) {
+        if (mCurrentHandoutURI != "") {
             outState?.putString("HandoutURI", mCurrentHandoutURI)
         }
     }
