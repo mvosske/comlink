@@ -26,9 +26,8 @@
         </activity>
 
         <service
-            android:name="MatrixService"
-            android:exported="false"
-            android:permission="android.permission.ACCESS_NETWORK_STATE" >
+            android:name=".matrix.MatrixService"
+            android:exported="false">
     </service>
 
     </application>
