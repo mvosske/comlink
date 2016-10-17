@@ -11,7 +11,7 @@ import java.net.*
  *
  */
 
-class Matrix (callback: Handler, context: ComlinklActivity) {
+class Matrix (callback: Handler, context: ComlinkActivity) {
 
     object const {
         val PING =  "Ping_at_XY"
@@ -26,7 +26,7 @@ class Matrix (callback: Handler, context: ComlinklActivity) {
     private val mUiHandler:Handler
     private var mServer:DatagramSocket
     private var mRunning = false
-    private val mContext: ComlinklActivity
+    private val mContext: ComlinkActivity
     private val mAddressPool = BroadcastAddressPool()
 
     init {

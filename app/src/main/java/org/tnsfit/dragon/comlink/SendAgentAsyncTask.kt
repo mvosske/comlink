@@ -124,7 +124,7 @@ class SendAgentAsyncTask(button: Button, socketManager: SocketManager, server: S
 
     private fun done() {
         mButton.text = "Send File"
-        val l = (mButton.context as ComlinklActivity).sendListerner
+        val l = (mButton.context as ComlinkActivity).sendListener
         mButton.setOnClickListener(l)
         mButton.isEnabled = true
     }

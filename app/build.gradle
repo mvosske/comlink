@@ -28,6 +28,9 @@ dependencies {
     testCompile 'junit:junit:4.12'
     compile 'com.android.support:appcompat-v7:21.+'
     compile 'com.android.support:support-v4:21.+'
+
+	compile 'org.greenrobot:eventbus:3.0.0'
+
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 }
 repositories {
