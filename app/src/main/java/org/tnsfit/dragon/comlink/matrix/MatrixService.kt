@@ -9,8 +9,6 @@ import android.support.v4.app.NotificationManagerCompat
 import org.greenrobot.eventbus.EventBus
 import org.tnsfit.dragon.comlink.misc.AppConstants
 import org.tnsfit.dragon.comlink.misc.registerIfRequired
-import java.net.Socket
-import java.util.*
 
 /**
  * Created by dragon on 11.10.16.
@@ -27,8 +25,8 @@ class MatrixService: Service() {
 		}
 	}
 
-	private val mSockets = ArrayList<Socket>()
-	private val mMatrix = MatrixConnection(this)
+	private val mSockets = SocketPool()
+	private val mMatrix: MatrixConnection by lazy { MatrixConnection(mSockets,getExternalFilesDir(null)) }
 	private val notificationManager: NotificationManagerCompat by lazy { NotificationManagerCompat.from(applicationContext) }
 	private val notificationId = AppConstants.NOTIFICATION_ID_SERVICE_ALIVE
 
@@ -44,8 +42,6 @@ class MatrixService: Service() {
 		}
 	}
 
-	private var isRunning = false
-
 	override fun onCreate() {
 		super.onCreate()
 		this.notificationManager.notify(notificationId,
@@ -53,20 +49,18 @@ class MatrixService: Service() {
 
 		this.registerReceiver(this.notificationActionReceiver, ServiceNotification.filter)
 
-		this.isRunning = true
-
 		this.mMatrix.startServer()
 		this.eventBus.registerIfRequired(mMatrix)
 	}
 
 	override fun onDestroy() {
-		this.isRunning = false
+		mSockets.stop()
 
 		this.unregisterReceiver(this.notificationActionReceiver)
 		this.eventBus.unregister(this.mMatrix)
 
 		this.mMatrix.stop()
-		this.closeAllSockets()
+		mSockets.closeAllSockets()
 
 		this.notificationManager.notify(notificationId, ServiceNotification.buildNotificationServiceNotAlive(this.applicationContext).build())
 		super.onDestroy()
@@ -74,28 +68,5 @@ class MatrixService: Service() {
 
 	override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 	override fun onBind(intent: Intent): IBinder? = null
-
-	fun registerSocket(socket: Socket): Boolean {
-		synchronized(this) {
-			if (!isRunning) return false
-			mSockets.add(socket)
-			return true
-		}
-	}
-
-	fun unregisterSocket(socket: Socket) {
-		synchronized(this) {
-			if (!isRunning) return
-			mSockets.remove(socket)
-		}
-	}
-
-	private fun closeAllSockets() {
-		synchronized(this) {
-			for (socket in mSockets) {
-				socket.close()
-			}
-		}
-	}
 
 }
