@@ -6,7 +6,14 @@ package org.tnsfit.dragon.comlink.matrix
  */
 
 
-data class MessagePacket (val type:String, val message:String) {
+class MessagePacket (val type:String, val message:String, val source:Int = NONE) {
+
+    companion object {
+        val NONE = 0
+        val MATRIX = 1
+        val COMLINK = 2
+    }
+
     fun pack(): ByteArray {
         var result = type
 
@@ -18,7 +25,7 @@ data class MessagePacket (val type:String, val message:String) {
     fun checkOK(): Boolean {
         return when (type) {
             MatrixConnection.SEND,
-            MatrixConnection.MESSAGE -> { if (message.equals("")) false else true}
+            MatrixConnection.TEXT_MESSAGE -> { if (message.equals("")) false else true}
             MatrixConnection.PING -> {if (message.contains(",")) true else false}
             MatrixConnection.HELLO,
             MatrixConnection.ANSWER -> { true }
@@ -28,15 +35,15 @@ data class MessagePacket (val type:String, val message:String) {
 }
 
 
-fun MessagePacketFactory(input:ByteArray): MessagePacket {
+fun MessagePacketFactory(input:ByteArray, source:Int = MessagePacket.NONE): MessagePacket {
     val stringed = input.toString(Charsets.UTF_8)
     val type:String = stringed.subSequence(0,10).toString()
     val messageEnding = stringed.indexOf(';')
 
     if (messageEnding > 10) {
-        return MessagePacket(type, stringed.substring(10,messageEnding))
+        return MessagePacket(type, stringed.substring(10,messageEnding), source)
     } else {
-        return MessagePacket("", "")
+        return MessagePacket("", "", source)
     }
 }
 

@@ -5,7 +5,6 @@ import android.view.View
 import org.greenrobot.eventbus.EventBus
 import org.tnsfit.dragon.comlink.matrix.MatrixConnection
 import org.tnsfit.dragon.comlink.matrix.MessagePacket
-import org.tnsfit.dragon.comlink.matrix.PingEvent
 
 /**
  * Created by dragon on 08.10.16.
@@ -31,10 +30,10 @@ class PingListener(): View.OnLongClickListener, View.OnTouchListener {
     }
 
     override fun onLongClick(v: View?): Boolean {
-        eventBus.post(PingEvent(mLastTouchX,mLastTouchY))
-
-        val coordString = mLastTouchX.toString()+","+mLastTouchY.toString()
-        eventBus.post(MessagePacket(MatrixConnection.PING,coordString))
+        eventBus.post(MessagePacket(
+                MatrixConnection.PING,
+                mLastTouchX.toString()+","+mLastTouchY.toString())
+        )
         return true
     }
 }

@@ -10,22 +10,13 @@ import android.net.Uri
  * Interfaces Not actually required to define, but it helps to get a clear view.
  */
 
-data class MessageEvent(val arbitraryData: String)
+// ein Ping, eine Text-Nachricht oder eine Datei-Empfangs-Einladung
 interface MessageEventListener {
-	fun onMessageEvent(event: MessageEvent)
+	fun onMessageEvent(messagePacket: MessagePacket)
 }
 
-data class PingEvent(val x: Int, val y: Int)
-interface PingEventListener {
-	fun onPingEvent(event: PingEvent)
-}
-
-// data class MessagePacket has its own File
-interface SendEventListener {
-	fun onSendEvent(messagePacket: MessagePacket)
-}
-
-data class ImageEvent(val eventUri: Uri)
+// ein Bild zur Anzeige steht zur Verfügung
+data class ImageEvent(val image: Uri, val source:Int = MessagePacket.NONE)
 interface ImageEventListener {
-	fun onImageEvent(eventUri: Uri)
+	fun onImageEvent(eventUri: ImageEvent)
 }

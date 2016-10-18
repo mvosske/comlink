@@ -21,7 +21,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 
-class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, ImageEventListener {
+class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
 
 	private val eventBus = EventBus.getDefault()
 
@@ -29,6 +29,8 @@ class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, Ima
     private val mPingManager = PingManager()
 
     private var mSendAgent: SendAgentAsyncTask? = null
+
+    // ToDo let the Service track this
     private var mCurrentHandoutURI = ""
 
     val sendListener: View.OnClickListener by lazy {
@@ -49,7 +51,7 @@ class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, Ima
         findViewById(R.id.send_text).setOnClickListener({ findViewById(R.id.send_text_controls).visibility = View.VISIBLE })
 
         findViewById(R.id.send_image).setOnLongClickListener {
-            onImageEvent(Uri.fromFile(File(getExternalFilesDir(null),"handout")))
+            setImage(Uri.fromFile(File(getExternalFilesDir(null),"handout")))
             true // aka return true
         }
 
@@ -64,7 +66,7 @@ class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, Ima
 		MatrixService.start(Application@this)
 
         mCurrentHandoutURI = savedInstanceState?.getString("HandoutURI") ?: ""
-        if (mCurrentHandoutURI != "") onImageEvent(Uri.parse(mCurrentHandoutURI))
+        if (mCurrentHandoutURI != "") setImage(Uri.parse(mCurrentHandoutURI))
     }
 
     override fun onStart() {
@@ -101,21 +103,25 @@ class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, Ima
             mSendAgent?.execute(readBytes(contentResolver.openInputStream(imageUri)))
             // ToDo move AsyncTask to Service as pure Thread
             eventBus.post(MessagePacket(MatrixConnection.SEND,"handout"))
+            setImage(imageUri)
 
         } else {
             super.onActivityResult(requestCode, resultCode, data)
         }
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    override fun onPingEvent(event: PingEvent) {
+    fun placePing(coordsString: String) {
+        val coords = coordsString.split(",", limit = 2)
+        val percentX: Int = coords[0].toInt()
+        val percentY: Int = coords[1].toInt()
+
         val frame = findViewById(R.id.imageFrame) as RelativeLayout
         val params = RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 RelativeLayout.LayoutParams.WRAP_CONTENT)
         try {
-            val newX: Int = ((frame.width * event.x) / 100)
-            val newY: Int = ((frame.height * event.y) / 100)
+            val newX: Int = ((frame.width * percentX) / 100)
+            val newY: Int = ((frame.height * percentY) / 100)
             params.topMargin = newY - 50
             params.leftMargin = newX - 50
             mPingManager.place(this,frame,params)
@@ -127,13 +133,27 @@ class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, Ima
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
-    override fun onImageEvent(eventUri: Uri) {
-        (findViewById(R.id.imageView) as ImageView).setImageURI(eventUri)
-        mCurrentHandoutURI = eventUri.toString()
+    override fun onImageEvent(eventUri: ImageEvent) {
+        if (eventUri.source == MessagePacket.COMLINK) return
+        setImage(eventUri.image)
+    }
+
+    fun setImage(image: Uri) {
+        (findViewById(R.id.imageView) as ImageView).setImageURI(image)
+        mCurrentHandoutURI = image.toString()
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    override fun onMessageEvent(messagePacket: MessagePacket) {
+        if (messagePacket.source == MessagePacket.COMLINK) return
+        when (messagePacket.type) {
+            MatrixConnection.TEXT_MESSAGE -> Toast.makeText(this, messagePacket.message, Toast.LENGTH_SHORT).show()
+            MatrixConnection.PING -> placePing(messagePacket.message)
+        }
     }
 
     fun sendAndHideTextField(message: String) {
-        eventBus.post(MessagePacket(MatrixConnection.MESSAGE,message))
+        eventBus.post(MessagePacket(MatrixConnection.TEXT_MESSAGE,message))
 
         val view = this.currentFocus
         if (view != null) {
@@ -148,11 +168,6 @@ class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, Ima
         super.onStop()
 		this.eventBus.unregister(this)
     }
-
-	@Subscribe(threadMode = ThreadMode.MAIN) // eventBus can handle thread switching out of the box
-	override fun onMessageEvent(event: MessageEvent) {
-		Toast.makeText(this, event.arbitraryData, Toast.LENGTH_SHORT).show()
-	}
 
 	override fun onSaveInstanceState(outState: Bundle?) {
         super.onSaveInstanceState(outState)

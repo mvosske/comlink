@@ -14,7 +14,7 @@ import java.util.*
 
 class SendAgentAsyncTask(private val button: Button, private val server: ServerSocket = ServerSocket()): AsyncTask<ByteArray, Int, Int>() {
 
-    private val mSockets: MutableList<Socket> = ArrayList<Socket>()
+    private val mSockets: MutableList<Socket> = ArrayList()
 
     private inner class Transfer(private val data: ByteArray, private val socket: Socket): Runnable {
         // ToDo Outsource this (individual Transfer) to MatrixService
@@ -59,8 +59,7 @@ class SendAgentAsyncTask(private val button: Button, private val server: ServerS
 
     override fun doInBackground(vararg params: ByteArray?): Int {
         var count = 0
-        val theStream = params[0]
-        if (theStream == null) return 0
+        val theStream = params[0] ?: return 0
 
         while (!isCancelled) try {
 

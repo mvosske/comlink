@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Log
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 import java.io.*
 import java.net.*
 
@@ -12,28 +13,26 @@ import java.net.*
  *
  */
 
-class MatrixConnection(context: MatrixService): SendEventListener {
+class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File): MessageEventListener {
 
     companion object {
         val PING =  "Ping_at_XY"
         val SEND =  "Take_this_"
         val HELLO = "Hi_Chummer"
         val ANSWER = "Welcome__"
-        val MESSAGE = "Know_What:"
+        val TEXT_MESSAGE = "Know_What:"
     }
 
     val TAG = "UDP Server"
 
     private var mServer: DatagramSocket
     private var mRunning = false
-    private val mContext: MatrixService
     private val mAddressPool = BroadcastAddressPool()
     private val eventBus = EventBus.getDefault()
 
     init {
         mServer = DatagramSocket(24322)
-        mServer.setBroadcast(true)
-        mContext = context
+        mServer.broadcast = true
     }
 
     inner class Server: Runnable {
@@ -47,7 +46,7 @@ class MatrixConnection(context: MatrixService): SendEventListener {
                 mServer = DatagramSocket(24322)
             }
 
-            send(HELLO,"")
+            eventBus.post(MessagePacket(HELLO,"",MessagePacket.COMLINK))
 
             while (mRunning) try {
                 if (mServer.isClosed) {
@@ -72,18 +71,6 @@ class MatrixConnection(context: MatrixService): SendEventListener {
         }
     }
 
-    inner class Sender(private val message: MessagePacket): Runnable {
-        override fun run() {
-            val outSocket = DatagramSocket()
-            outSocket.broadcast = true
-
-            for (packet in mAddressPool.getPackets(message.pack())) {
-                outSocket.send(packet)
-            }
-            outSocket.close()
-        }
-    }
-
     private inner class MessageProcessor(private val packet: DatagramPacket): Runnable {
         override fun run() {
             if (NetworkInterface.getByInetAddress(packet.address) != null) {
@@ -93,22 +80,22 @@ class MatrixConnection(context: MatrixService): SendEventListener {
 
             mAddressPool.confirm(packet.address)
 
-            val content = MessagePacketFactory(packet.data)
+            val content = MessagePacketFactory(packet.data,MessagePacket.MATRIX)
 
             when (content.type) {
                 ANSWER -> return
-                HELLO -> send(ANSWER,"")
-                MESSAGE -> eventBus.post(MessageEvent(content.message))
-                SEND -> recieveFile(content.message)
-                PING -> receivePing(content.message)
+                HELLO -> eventBus.post(MessagePacket(ANSWER,"",MessagePacket.COMLINK))
+                SEND -> receiveFile(content.message)
+                PING,
+                TEXT_MESSAGE -> eventBus.post(content)
             }
         }
 
-        private fun recieveFile(message: String) {
-            val outFile = File(mContext.getExternalFilesDir(null), message)
+        private fun receiveFile(message: String) {
+            val outFile = File(workingDirectory, message)
             try {
                 val clientSocket = Socket(packet.address, 24321)
-                mContext.registerSocket(clientSocket)
+                socketPool.registerSocket(clientSocket)
                 val inStream: BufferedInputStream = clientSocket.inputStream.buffered()
                 val outStream = BufferedOutputStream(FileOutputStream(outFile, false))
 
@@ -124,31 +111,11 @@ class MatrixConnection(context: MatrixService): SendEventListener {
                 outStream.flush()
                 outStream.close()
                 clientSocket.close()
-                mContext.unregisterSocket(clientSocket)
+                socketPool.unregisterSocket(clientSocket)
             } catch (e: IOException) {
                 // ToDo Toast Info and let it fail
             }
-            eventBus.post(ImageEvent(Uri.fromFile(outFile)))
-        }
-
-        fun receivePing(coordsString: String) {
-            val coords = coordsString.split(",", limit = 2)
-            val percentX: Int = coords[0].toInt()
-            val percentY: Int = coords[1].toInt()
-            eventBus.post(PingEvent(percentX, percentY))
-        }
-
-    }
-
-    fun send(type:String, message:String) {
-        send(MessagePacket(type, message))
-    }
-
-    fun send(packet: MessagePacket) {
-        if (packet.checkOK()) {
-            Thread(Sender(packet)).start()
-        } else {
-            Log.e(TAG, "Wrong call to Matrix.send()")
+            eventBus.post(ImageEvent(Uri.fromFile(outFile), MessagePacket.MATRIX))
         }
     }
 
@@ -165,9 +132,16 @@ class MatrixConnection(context: MatrixService): SendEventListener {
         }
     }
 
-    @Subscribe
-    override fun onSendEvent(messagePacket: MessagePacket) {
-        // ToDo Change to "threadMode = ThreadMode.ASYNC" and send without additional Threading
-        send(messagePacket)
+    @Subscribe(threadMode = ThreadMode.ASYNC)
+    override fun onMessageEvent(messagePacket: MessagePacket) {
+        if ((messagePacket.source == MessagePacket.MATRIX) || !messagePacket.checkOK()) return
+
+        val outSocket = DatagramSocket()
+        outSocket.broadcast = true
+
+        for (packet in mAddressPool.getPackets(messagePacket.pack())) {
+            outSocket.send(packet)
+        }
+        outSocket.close()
     }
 }
