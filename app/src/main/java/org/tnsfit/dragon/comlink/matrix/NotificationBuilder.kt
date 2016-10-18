@@ -24,7 +24,28 @@ object ServiceNotification {
 		this.addAction(NOTIFICATION_ACTION_DISMISS)
 	}
 
-	fun buildNotification(context: Context): NotificationCompat.Builder {
+	fun buildNotificationServiceNotAlive(context: Context): NotificationCompat.Builder {
+		val openAppIntent = PendingIntent.getActivity(context,
+				AppConstants.INTENT_REQUEST_NOTIFICATION_OPEN, Intent(context, ComlinkActivity::class.java), 0)
+		val startServiceIntent = PendingIntent.getService(context,
+				AppConstants.INTENT_REQUEST_NOTIFICATION_RESTART_SERVICE, Intent(context, MatrixService::class.java), 0)
+
+		val builder = NotificationCompat.Builder(context)
+				.setContentTitle(context.getString(R.string.matrix_service_notification_title))
+				.setSmallIcon(R.drawable.ic_notification_matrix_on)
+				.setContentIntent(openAppIntent)
+				.setLargeIcon(this.getLargeIcon(context))
+				.addAction(0, context.getString(R.string.matrix_service_notification_action_restart), startServiceIntent)
+
+		val wearableExtender = NotificationCompat.WearableExtender()
+				.setHintHideIcon(true)
+
+		builder.extend(wearableExtender)
+
+		return builder
+	}
+
+	fun buildNotificationServiceAlive(context: Context): NotificationCompat.Builder {
 
 		val openAppIntent = PendingIntent.getActivity(context,
 				AppConstants.INTENT_REQUEST_NOTIFICATION_OPEN, Intent(context, ComlinkActivity::class.java), 0)

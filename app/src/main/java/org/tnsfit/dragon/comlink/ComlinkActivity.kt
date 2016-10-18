@@ -15,6 +15,7 @@ import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 import org.tnsfit.dragon.comlink.matrix.*
 import org.tnsfit.dragon.comlink.misc.AppConstants
+import org.tnsfit.dragon.comlink.misc.registerIfRequired
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -68,8 +69,7 @@ class ComlinkActivity : Activity(), MessageEventListener, PingEventListener, Ima
 
     override fun onStart() {
         super.onStart()
-		if (!this.eventBus.isRegistered(this))
-			this.eventBus.register(this)
+		this.eventBus.registerIfRequired(this)
     }
 
     fun readBytes(inputStream: InputStream): ByteArray {

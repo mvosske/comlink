@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.support.v4.app.NotificationManagerCompat
 import org.greenrobot.eventbus.EventBus
 import org.tnsfit.dragon.comlink.misc.AppConstants
+import org.tnsfit.dragon.comlink.misc.registerIfRequired
 import java.net.Socket
 import java.util.*
 
@@ -37,35 +38,37 @@ class MatrixService: Service() {
 		override fun onReceive(context: Context, intent: Intent) {
 			intent.action?.let { action ->
 				if (action == ServiceNotification.NOTIFICATION_ACTION_DISMISS) {
-					this@MatrixService.notificationManager.cancel(notificationId)
 					this@MatrixService.stopSelf()
 				}
 			}
 		}
 	}
 
-	var isClosing = false
-	// ToDo Change setter to private or make it stop-service Synonym
+	private var isRunning = false
 
 	override fun onCreate() {
 		super.onCreate()
 		this.notificationManager.notify(notificationId,
-				ServiceNotification.buildNotification(this.applicationContext).build())
+				ServiceNotification.buildNotificationServiceAlive(this.applicationContext).build())
 
 		this.registerReceiver(this.notificationActionReceiver, ServiceNotification.filter)
 
-		mMatrix.startServer()
-		if (!this.eventBus.isRegistered(mMatrix))
-			this.eventBus.register(mMatrix)
+		this.isRunning = true
 
-		this.eventBus.post(MessageEvent("Hooray"))
+		this.mMatrix.startServer()
+		this.eventBus.registerIfRequired(mMatrix)
 	}
 
 	override fun onDestroy() {
+		this.isRunning = false
+
 		this.unregisterReceiver(this.notificationActionReceiver)
-		this.eventBus.unregister(mMatrix)
-		mMatrix.stop()
+		this.eventBus.unregister(this.mMatrix)
+
+		this.mMatrix.stop()
 		this.closeAllSockets()
+
+		this.notificationManager.notify(notificationId, ServiceNotification.buildNotificationServiceNotAlive(this.applicationContext).build())
 		super.onDestroy()
 	}
 
@@ -74,7 +77,7 @@ class MatrixService: Service() {
 
 	fun registerSocket(socket: Socket): Boolean {
 		synchronized(this) {
-			if (isClosing) return false
+			if (!isRunning) return false
 			mSockets.add(socket)
 			return true
 		}
@@ -82,14 +85,13 @@ class MatrixService: Service() {
 
 	fun unregisterSocket(socket: Socket) {
 		synchronized(this) {
-			if (isClosing) return
+			if (!isRunning) return
 			mSockets.remove(socket)
 		}
 	}
 
-	fun closeAllSockets() {
+	private fun closeAllSockets() {
 		synchronized(this) {
-			isClosing = true
 			for (socket in mSockets) {
 				socket.close()
 			}
