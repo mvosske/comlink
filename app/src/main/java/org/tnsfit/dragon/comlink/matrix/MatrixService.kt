@@ -38,7 +38,6 @@ class MatrixService: Service() {
 		override fun onReceive(context: Context, intent: Intent) {
 			intent.action?.let { action ->
 				if (action == ServiceNotification.NOTIFICATION_ACTION_DISMISS) {
-					this@MatrixService.notificationManager.cancel(notificationId)
 					this@MatrixService.stopSelf()
 				}
 			}
@@ -61,11 +60,15 @@ class MatrixService: Service() {
 	}
 
 	override fun onDestroy() {
+		this.isRunning = false
+
 		this.unregisterReceiver(this.notificationActionReceiver)
 		this.eventBus.unregister(this.mMatrix)
-		this.isRunning = false
+
 		this.mMatrix.stop()
 		this.closeAllSockets()
+
+		this.notificationManager.notify(notificationId, ServiceNotification.buildNotificationServiceNotAlive(this.applicationContext).build())
 		super.onDestroy()
 	}
 
