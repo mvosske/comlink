@@ -13,7 +13,8 @@ import java.net.*
  *
  */
 
-class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File): MessageEventListener {
+class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File):
+        MessageEventListener {
 
     companion object {
         val PING =  "Ping_at_XY"
@@ -26,7 +27,7 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File): 
     val TAG = "UDP Server"
 
     private var mServer: DatagramSocket
-    private var mRunning = false
+    private var isRunning = false
     private val mAddressPool = BroadcastAddressPool()
     private val eventBus = EventBus.getDefault()
 
@@ -38,7 +39,7 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File): 
     inner class Server: Runnable {
         override fun run() {
             synchronized(this@MatrixConnection) {
-                mRunning = true;
+                isRunning = true;
             }
 
             // First Time initialisation, to already be able to receive an "Answer" on "Hello"
@@ -48,7 +49,7 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File): 
 
             eventBus.post(MessagePacket(HELLO,"",MessagePacket.COMLINK))
 
-            while (mRunning) try {
+            while (isRunning) try {
                 if (mServer.isClosed) {
                     mServer = DatagramSocket(24322)
                 }
@@ -60,12 +61,15 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File): 
                 Thread(MessageProcessor(receivePacket)).start()
 
             } catch (se: SocketException) {
-                if (se.message.equals("Socket closed") && !mRunning) {
+                if (se.message.equals("Socket closed") && !isRunning) {
                     Log.d(TAG, "Socket closed as expected")
                 } else {
                     // Maybe react someway, this is not expected
                     Log.d(TAG, "Socket Exception Message: " + se.message)
                     Log.d(TAG, "Socket Exception complete: " + se.toString())
+                    synchronized(this@MatrixConnection) {
+                        isRunning = true;
+                    }
                 }
             }
         }
@@ -120,21 +124,25 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File): 
     }
 
     fun startServer() {
-        if (mRunning) return
+        if (isRunning) return
         val t = Thread(Server(), "UdpBroadcstReciever")
         t.start()
     }
 
     fun stop() {
         synchronized(this) {
-            mRunning = false
+            isRunning = false
             if (!mServer.isClosed) mServer.close()
         }
     }
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
     override fun onMessageEvent(messagePacket: MessagePacket) {
-        if ((messagePacket.source == MessagePacket.MATRIX) || !messagePacket.checkOK()) return
+        if (
+            (messagePacket.source == MessagePacket.MATRIX) ||
+            !messagePacket.checkOK() ||
+            !isRunning
+        ) return
 
         val outSocket = DatagramSocket()
         outSocket.broadcast = true

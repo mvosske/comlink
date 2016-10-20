@@ -18,5 +18,10 @@ interface MessageEventListener {
 // ein Bild zur Anzeige steht zur Verfügung
 data class ImageEvent(val image: Uri, val source:Int = MessagePacket.NONE)
 interface ImageEventListener {
-	fun onImageEvent(eventUri: ImageEvent)
+	fun onImageEvent(imageUri: ImageEvent)
+}
+
+data class StatusEvent(val status: Int, val text:String = "")
+interface StatusEventListener {
+	fun onStatusEvent(statusEvent: StatusEvent)
 }

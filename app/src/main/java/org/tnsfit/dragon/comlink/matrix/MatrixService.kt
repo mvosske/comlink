@@ -7,6 +7,8 @@ import android.content.Intent
 import android.os.IBinder
 import android.support.v4.app.NotificationManagerCompat
 import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 import org.tnsfit.dragon.comlink.misc.AppConstants
 import org.tnsfit.dragon.comlink.misc.registerIfRequired
 
@@ -17,7 +19,7 @@ import org.tnsfit.dragon.comlink.misc.registerIfRequired
  */
 
 
-class MatrixService: Service() {
+class MatrixService: Service(), ImageEventListener {
 
 	companion object {
 		fun start(context: Context) {
@@ -25,8 +27,8 @@ class MatrixService: Service() {
 		}
 	}
 
-	private val mSockets = SocketPool()
-	private val mMatrix: MatrixConnection by lazy { MatrixConnection(mSockets,getExternalFilesDir(null)) }
+	private val socketPool = SocketPool()
+	private val mMatrix: MatrixConnection by lazy { MatrixConnection(socketPool,getExternalFilesDir(null)) }
 	private val notificationManager: NotificationManagerCompat by lazy { NotificationManagerCompat.from(applicationContext) }
 	private val notificationId = AppConstants.NOTIFICATION_ID_SERVICE_ALIVE
 
@@ -50,17 +52,19 @@ class MatrixService: Service() {
 		this.registerReceiver(this.notificationActionReceiver, ServiceNotification.filter)
 
 		this.mMatrix.startServer()
+		this.eventBus.registerIfRequired(this)
 		this.eventBus.registerIfRequired(mMatrix)
 	}
 
 	override fun onDestroy() {
-		mSockets.stop()
+		socketPool.stop()
 
 		this.unregisterReceiver(this.notificationActionReceiver)
 		this.eventBus.unregister(this.mMatrix)
+		this.eventBus.unregister(this)
 
 		this.mMatrix.stop()
-		mSockets.closeAllSockets()
+		socketPool.closeAllSockets()
 
 		this.notificationManager.notify(notificationId, ServiceNotification.buildNotificationServiceNotAlive(this.applicationContext).build())
 		super.onDestroy()
@@ -69,4 +73,10 @@ class MatrixService: Service() {
 	override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 	override fun onBind(intent: Intent): IBinder? = null
 
+	@Subscribe(threadMode = ThreadMode.ASYNC)
+	override fun onImageEvent(imageUri: ImageEvent) {
+		if (imageUri.source == MessagePacket.COMLINK) {
+			SendAgent(socketPool, contentResolver.openInputStream(imageUri.image)).start()
+		}
+	}
 }

@@ -1,6 +1,6 @@
 package org.tnsfit.dragon.comlink.matrix
 
-import java.net.Socket
+import java.io.Closeable
 import java.util.*
 
 /**
@@ -11,11 +11,12 @@ import java.util.*
 class SocketPool {
 
     val lock = Object()
-    private val mSockets: MutableList<Socket> = ArrayList<Socket>()
+    private val mSockets: MutableList<Closeable> = ArrayList<Closeable>()
+
     var isRunning = true
         private set
 
-    fun registerSocket(socket: Socket): Boolean {
+    fun registerSocket(socket: Closeable): Boolean {
         synchronized(lock) {
             if (isRunning) {
                 mSockets.add(socket)
@@ -27,7 +28,7 @@ class SocketPool {
         }
     }
 
-    fun unregisterSocket(socket: Socket) {
+    fun unregisterSocket(socket: Closeable) {
         synchronized(lock) {
             if (isRunning) mSockets.remove(socket)
         }

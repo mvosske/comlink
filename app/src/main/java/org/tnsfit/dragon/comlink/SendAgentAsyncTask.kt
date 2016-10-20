@@ -2,7 +2,8 @@ package org.tnsfit.dragon.comlink
 
 import android.os.AsyncTask
 import android.util.Log
-import android.widget.Button
+import org.greenrobot.eventbus.EventBus
+import org.tnsfit.dragon.comlink.matrix.StatusEvent
 import java.io.IOException
 import java.net.*
 import java.util.*
@@ -12,9 +13,10 @@ import java.util.*
  *
  */
 
-class SendAgentAsyncTask(private val button: Button, private val server: ServerSocket = ServerSocket()): AsyncTask<ByteArray, Int, Int>() {
+class SendAgentAsyncTask(private val server: ServerSocket = ServerSocket()): AsyncTask<ByteArray, Int, Int>() {
 
     private val mSockets: MutableList<Socket> = ArrayList()
+    private val eventBus = EventBus.getDefault()
 
     private inner class Transfer(private val data: ByteArray, private val socket: Socket): Runnable {
         // ToDo Outsource this (individual Transfer) to MatrixService
@@ -41,14 +43,7 @@ class SendAgentAsyncTask(private val button: Button, private val server: ServerS
     }
 
     override fun onPreExecute() {
-        button.text = "0 x gesendet"
-        button.setOnClickListener {
-            if (!isCancelled) {
-                button.text = "Warte auf Abbruch.."
-                button.isEnabled = false
-                cancel(true)
-            }
-        }
+        eventBus.post(StatusEvent(StatusTracker.SENDING))
 
         if (!server.isBound) {
             server.reuseAddress = true
@@ -81,12 +76,11 @@ class SendAgentAsyncTask(private val button: Button, private val server: ServerS
     }
 
     override fun onProgressUpdate(vararg values: Int?) {
-        val number = (values[0] ?: 0).toString()
-        button.text = number + " x ausgeliefert."
+        eventBus.post(StatusEvent(StatusTracker.PROGRESS))
     }
 
     override fun onCancelled(result: Int?) {
-        if (mSockets.count() == 0) done()
+        if (mSockets.count() == 0) eventBus.post(StatusEvent(StatusTracker.IDLE))
     }
 
     override fun onPostExecute(result: Int?) {
@@ -99,21 +93,14 @@ class SendAgentAsyncTask(private val button: Button, private val server: ServerS
 
             if (isCancelled && (mSockets.count() == 0)) {
                 server.close()
-                done()
+                eventBus.post(StatusEvent(StatusTracker.IDLE))
             }
         }
     }
 
-    private fun done() {
-        button.text = "Send File"
-        val l = (button.context as ComlinkActivity).sendListener
-        button.setOnClickListener(l)
-        button.isEnabled = true
-    }
-
     fun recycle(): SendAgentAsyncTask {
         val newServer = if (server.isClosed) ServerSocket() else server
-        return SendAgentAsyncTask(button,newServer)
+        return SendAgentAsyncTask(newServer)
     }
 
     fun kill () {

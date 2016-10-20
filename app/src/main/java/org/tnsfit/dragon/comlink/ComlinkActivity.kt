@@ -16,22 +16,15 @@ import org.greenrobot.eventbus.ThreadMode
 import org.tnsfit.dragon.comlink.matrix.*
 import org.tnsfit.dragon.comlink.misc.AppConstants
 import org.tnsfit.dragon.comlink.misc.registerIfRequired
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.IOException
-import java.io.InputStream
 
-class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
+class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, StatusEventListener {
 
 	private val eventBus = EventBus.getDefault()
-
     private val mSendTextListener = SendText(this)
     private val mPingManager = PingManager()
 
-    private var mSendAgent: SendAgentAsyncTask? = null
-
-    // ToDo let the Service track this
-    private var mCurrentHandoutURI = ""
+    private lateinit var statusTracker: StatusTracker
 
     val sendListener: View.OnClickListener by lazy {
         View.OnClickListener {
@@ -63,35 +56,16 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
         findViewById(R.id.imageFrame).setOnTouchListener(pingListener)
         findViewById(R.id.imageFrame).setOnLongClickListener(pingListener)
 
-		MatrixService.start(Application@this)
+		MatrixService.start(this.applicationContext)
 
-        mCurrentHandoutURI = savedInstanceState?.getString("HandoutURI") ?: ""
-        if (mCurrentHandoutURI != "") setImage(Uri.parse(mCurrentHandoutURI))
+        statusTracker = eventBus.getStickyEvent(StatusTracker::class.java) ?: StatusTracker()
+        if (!statusTracker.isNew) setImage(statusTracker.currentHandout)
     }
 
     override fun onStart() {
         super.onStart()
 		this.eventBus.registerIfRequired(this)
-    }
 
-    fun readBytes(inputStream: InputStream): ByteArray {
-        val byteBuffer = ByteArrayOutputStream()
-        try {
-
-            val bufferSize = 1024
-            val buffer = ByteArray(bufferSize)
-
-            var len: Int
-            while (true) {
-                len = inputStream.read(buffer)
-                if (len == -1) break
-                byteBuffer.write(buffer, 0, len)
-            }
-        } catch (e: IOException) {
-            return ByteArray(0)
-        }
-
-        return byteBuffer.toByteArray()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -99,10 +73,9 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
             val imageUri = data?.data ?: return
             val button = findViewById(R.id.send_image) as Button
 
-            mSendAgent = mSendAgent?.recycle() ?: SendAgentAsyncTask(button)
-            mSendAgent?.execute(readBytes(contentResolver.openInputStream(imageUri)))
-            // ToDo move AsyncTask to Service as pure Thread
-            eventBus.post(MessagePacket(MatrixConnection.SEND,"handout"))
+            button.isEnabled = false
+            button.setOnClickListener(View.OnClickListener { eventBus.post(StatusEvent(StatusTracker.ABORTING)) })
+            eventBus.post(ImageEvent(imageUri,MessagePacket.COMLINK))
             setImage(imageUri)
 
         } else {
@@ -111,11 +84,12 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
     }
 
     fun placePing(coordsString: String) {
+        val frame = findViewById(R.id.imageFrame) as RelativeLayout
+
         val coords = coordsString.split(",", limit = 2)
         val percentX: Int = coords[0].toInt()
         val percentY: Int = coords[1].toInt()
 
-        val frame = findViewById(R.id.imageFrame) as RelativeLayout
         val params = RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 RelativeLayout.LayoutParams.WRAP_CONTENT)
@@ -127,20 +101,21 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
             mPingManager.place(this,frame,params)
 
         } catch (e: NumberFormatException) {
-            // ToDo Toast this shit or so
+            // ToDo Toast this error or so
             Log.e("ComlinkActivity", "Got Wrong format for a Ping")
         }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
-    override fun onImageEvent(eventUri: ImageEvent) {
-        if (eventUri.source == MessagePacket.COMLINK) return
-        setImage(eventUri.image)
+    override fun onImageEvent(imageUri: ImageEvent) {
+        if (imageUri.source == MessagePacket.COMLINK) return
+        setImage(imageUri.image)
     }
 
     fun setImage(image: Uri) {
         (findViewById(R.id.imageView) as ImageView).setImageURI(image)
-        mCurrentHandoutURI = image.toString()
+        statusTracker.currentHandout = image
+        statusTracker.isNew = false
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -152,8 +127,32 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
         }
     }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    override fun onStatusEvent(statusEvent: StatusEvent) {
+        val button = findViewById(R.id.send_image) as Button
+        // ToDo die folgenden Strings als String Ressource
+        when (statusEvent.status) {
+            StatusTracker.PROGRESS,
+            StatusTracker.SENDING -> {
+                button.text = statusEvent.text + " x gesendet"
+                button.isEnabled = true
+            }
+
+            StatusTracker.ABORTING -> {
+                button.text = "Warte auf Abbruch.."
+                button.isEnabled = false
+            }
+            StatusTracker.IDLE -> {
+                button.text = "Send File"
+                button.isEnabled = true
+                button.setOnClickListener(sendListener)
+            }
+        }
+        statusTracker.lastEvent = statusEvent
+    }
+
     fun sendAndHideTextField(message: String) {
-        eventBus.post(MessagePacket(MatrixConnection.TEXT_MESSAGE,message))
+        eventBus.post(MessagePacket(MatrixConnection.TEXT_MESSAGE,message, MessagePacket.COMLINK))
 
         val view = this.currentFocus
         if (view != null) {
@@ -169,17 +168,8 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener {
 		this.eventBus.unregister(this)
     }
 
-	override fun onSaveInstanceState(outState: Bundle?) {
-        super.onSaveInstanceState(outState)
-
-        if (mCurrentHandoutURI != "") {
-            outState?.putString("HandoutURI", mCurrentHandoutURI)
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
-        mSendAgent?.kill()
         mSendTextListener.kill()
     }
 }
