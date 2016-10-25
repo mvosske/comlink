@@ -11,7 +11,7 @@ import org.tnsfit.dragon.comlink.matrix.StatusEvent
  *
  */
 
-class StatusTracker {
+class StatusTracker() {
 
     companion object {
         val IDLE = 0
@@ -20,8 +20,8 @@ class StatusTracker {
         val ABORTING = 3
     }
 
-    var isNew: Boolean = true
     var lastEvent: StatusEvent = StatusEvent(IDLE)
-    var currentHandout: Uri = Uri.EMPTY
+    var currentHandout: Uri = Uri.parse("android.resource://org.tnsfit.dragon.comlink/R.drawable.empty_image")
+    var name: String = ""
 
 }

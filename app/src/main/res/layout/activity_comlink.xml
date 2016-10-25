@@ -34,6 +34,7 @@
                 android:layout_height="wrap_content"
                 android:text="Datei senden"
                 android:id="@+id/send_image"
+                android:enabled="false"
                 android:layout_weight="0.73" />
 
             <Button
@@ -47,8 +48,8 @@
             <Button
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Text"
-                android:id="@+id/send_text"
+                android:text="Name?"
+                android:id="@+id/toggle_text_input"
                 android:layout_weight="0.73" />
 
         </LinearLayout>
@@ -74,7 +75,7 @@
                 android:layout_alignParentStart="true"
                 android:layout_alignParentEnd="false"
                 android:id="@+id/send_text_controls"
-                android:visibility="gone">
+                android:visibility="visible">
 
                 <EditText
                     android:layout_width="0dp"
@@ -86,12 +87,13 @@
                     android:layout_weight="1"
                     />
 
-                <Button
+                <ImageButton
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="send"
+                    android:contentDescription="Enter"
+                    android:src="@android:drawable/ic_menu_save"
                     android:labelFor="@id/sendTextEdit"
-                    android:id="@+id/sendTextSend" />
+                    android:id="@+id/send_Text" />
 
             </LinearLayout>
 

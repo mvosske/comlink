@@ -9,6 +9,7 @@ package org.tnsfit.dragon.comlink.matrix
 class MessagePacket (val type:String, val message:String, val source:Int = NONE) {
 
     companion object {
+        // Source Types
         val NONE = 0
         val MATRIX = 1
         val COMLINK = 2
@@ -26,6 +27,7 @@ class MessagePacket (val type:String, val message:String, val source:Int = NONE)
         return when (type) {
             MatrixConnection.SEND,
             MatrixConnection.TEXT_MESSAGE -> { if (message.equals("")) false else true}
+            MatrixConnection.MARKER,
             MatrixConnection.PING -> {if (message.contains(",")) true else false}
             MatrixConnection.HELLO,
             MatrixConnection.ANSWER -> { true }

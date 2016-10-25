@@ -9,10 +9,11 @@ import org.tnsfit.dragon.comlink.matrix.MessagePacket
 /**
  * Created by dragon on 08.10.16.
  *
+ * Überwacht das Platzieren von Pings und Marker
+ *
  */
 
-class PingListener(): View.OnLongClickListener, View.OnTouchListener {
-
+class PingListener(): View.OnLongClickListener, View.OnTouchListener, View.OnClickListener {
     private val eventBus: EventBus by lazy {
         EventBus.getDefault()
     }
@@ -29,11 +30,24 @@ class PingListener(): View.OnLongClickListener, View.OnTouchListener {
         return false
     }
 
-    override fun onLongClick(v: View?): Boolean {
+    override fun onClick(v: View?) {
         eventBus.post(MessagePacket(
                 MatrixConnection.PING,
                 mLastTouchX.toString()+","+mLastTouchY.toString())
         )
+    }
+
+    override fun onLongClick(v: View?): Boolean {
+        eventBus.post(MessagePacket(
+                MatrixConnection.MARKER,
+                mLastTouchX.toString()+","+mLastTouchY.toString())
+        )
         return true
+    }
+
+    fun listen(v: View) {
+        v.setOnTouchListener(this)
+        v.setOnClickListener(this)
+        v.setOnLongClickListener(this)
     }
 }
