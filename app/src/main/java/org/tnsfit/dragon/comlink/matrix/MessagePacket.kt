@@ -1,5 +1,7 @@
 package org.tnsfit.dragon.comlink.matrix
 
+import org.tnsfit.dragon.comlink.AroCoordinates
+
 /**
  * Created by dragon on 08.10.16.
  *
@@ -13,6 +15,10 @@ class MessagePacket (val type:String, val message:String, val source:Int = NONE)
         val NONE = 0
         val MATRIX = 1
         val COMLINK = 2
+    }
+
+    val aroCoordinates: AroCoordinates by lazy {
+        AroCoordinates(message)
     }
 
     fun pack(): ByteArray {

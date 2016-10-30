@@ -13,7 +13,7 @@ import java.net.*
  *
  */
 
-// Todo Implementioere "Auf Schleichfahrt" welches alle nachrichten nur an die schickt, die NICHT das Handout geliefert ahben
+// Todo Implementiere "Auf Schleichfahrt" welches alle nachrichten nur an die schickt, die NICHT das Handout geliefert ahben
 
 class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File):
         MessageEventListener {
@@ -21,6 +21,7 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File):
     companion object {
         val PING =   "Ping_at_XY"
         val MARKER = "Mark_at_XY"
+        val REMOVE_MARKER = "Delete_XY_"
         // Todo Event für entfernen von Markern
         val SEND =   "Take_this_"
         val HELLO =  "Hi_Chummer"
@@ -101,7 +102,7 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File):
         }
 
         private fun receiveFile(message: String) {
-            // ToDo Nachfragen ob der Empfgang OK ist
+            // ToDo Nachfragen ob der Empfgang genehmigt ist
             val outFile = File(workingDirectory, message)
             try {
                 val clientSocket = Socket(packet.address, 24321)

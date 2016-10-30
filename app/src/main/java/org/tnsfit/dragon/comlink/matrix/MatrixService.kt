@@ -9,10 +9,8 @@ import android.support.v4.app.NotificationManagerCompat
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import org.tnsfit.dragon.comlink.StatusTracker
 import org.tnsfit.dragon.comlink.misc.AppConstants
 import org.tnsfit.dragon.comlink.misc.registerIfRequired
-import java.io.FileNotFoundException
 
 /**
  * Created by dragon on 11.10.16.
@@ -40,6 +38,7 @@ class MatrixService: Service(), ImageEventListener {
 		override fun onReceive(context: Context, intent: Intent) {
 			intent.action?.let { action ->
 				if (action == ServiceNotification.NOTIFICATION_ACTION_DISMISS) {
+					eventBus.post(KillEvent())
 					this@MatrixService.stopSelf()
 				}
 			}
@@ -78,12 +77,7 @@ class MatrixService: Service(), ImageEventListener {
 	@Subscribe(threadMode = ThreadMode.ASYNC)
 	override fun onImageEvent(imageUri: ImageEvent) {
 		if (imageUri.source == MessagePacket.COMLINK) {
-			try {
-				SendAgent(socketPool, contentResolver.openInputStream(imageUri.image)).start()
-			} catch (e: FileNotFoundException) {
-				eventBus.post(MessagePacket(MatrixConnection.TEXT_MESSAGE,e.message.toString(),MessagePacket.MATRIX))
-				eventBus.post(StatusEvent(StatusTracker.IDLE))
-			}
+			SendAgent(socketPool, contentResolver.openInputStream(imageUri.image)).start()
 		}
 	}
 }

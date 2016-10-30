@@ -11,7 +11,7 @@ import java.util.*
 class SocketPool {
 
     val lock = Object()
-    private val mSockets: MutableList<Closeable> = ArrayList<Closeable>()
+    private val mSockets: MutableList<Closeable> = ArrayList()
 
     var isRunning = true
         private set

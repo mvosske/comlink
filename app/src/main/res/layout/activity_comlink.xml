@@ -11,12 +11,17 @@
         android:scaleType="centerCrop"
         android:id="@+id/imageBackground"
         android:src="@drawable/seattle"
-        android:layout_gravity="left|top" />
+        android:layout_gravity="start|top" />
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:id="@+id/bigFrame">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/name_display" />
 
         <LinearLayout
             android:id="@+id/fullscreen_content_controls"
@@ -65,7 +70,7 @@
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter"
                 android:id="@+id/imageView"
-                android:layout_gravity="left|top" />
+                android:layout_gravity="start|top" />
 
             <LinearLayout
                 android:orientation="horizontal"

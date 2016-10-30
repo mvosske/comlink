@@ -38,7 +38,7 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
                 outStream.close()
                 socket.close()
                 count++
-                eventBus.post(StatusEvent(StatusTracker.PROGRESS, count.toString()))
+                eventBus.post(StatusEvent(StatusTracker.STATUS_PROGRESS, count.toString()))
             } catch (ioe: IOException) {
                 Log.e("SendAgentThread", "Something was Wrong: "+ioe.message)
                 socket.close()
@@ -51,7 +51,7 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
     override fun run() {
         isRunning = true
         eventBus.registerIfRequired(this)
-        eventBus.post(StatusEvent(StatusTracker.SENDING))
+        eventBus.post(StatusEvent(StatusTracker.STATUS_PROGRESS,"0"))
 
         server.reuseAddress = true
         server.soTimeout = 6000
@@ -76,7 +76,7 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
         server.close()
         socketPool.unregisterSocket(server)
         eventBus.unregister(this)
-        eventBus.post(StatusEvent(StatusTracker.IDLE))
+        eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE))
     }
 
     fun readBytes(inputStream: InputStream): ByteArray {
@@ -101,7 +101,7 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
 
     @Subscribe
     override fun onStatusEvent(statusEvent: StatusEvent) {
-        if (statusEvent.status == StatusTracker.ABORTING) {
+        if (statusEvent.status == StatusTracker.STATUS_ABORTING) {
             isRunning = false
         }
     }

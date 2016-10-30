@@ -21,7 +21,7 @@ class BroadcastAddressPool {
         for (card in NetworkInterface.getNetworkInterfaces()) {
             if (!card.isUp || card.isLoopback) continue
             for (address in card.interfaceAddresses) {
-                val bcast = address.getBroadcast()
+                val bcast = address.broadcast
                 if (bcast != null) mAllAddresses.add(bcast)
             }
         }
@@ -50,7 +50,7 @@ class BroadcastAddressPool {
             val intIP = ip[i].toInt()
             val intBcast = bcast[i].toInt()
             try {
-                mask = netmask.get(i)
+                mask = netmask[i]
             } catch (e: IndexOutOfBoundsException) {
                 mask=0
             }

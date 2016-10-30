@@ -14,11 +14,13 @@ import org.tnsfit.dragon.comlink.matrix.*
 import org.tnsfit.dragon.comlink.misc.AppConstants
 import org.tnsfit.dragon.comlink.misc.registerIfRequired
 
-class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, StatusEventListener {
+class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
+        StatusEventListener, KillEventListener {
 
 	private val eventBus = EventBus.getDefault()
     private val mSendTextListener = SendText(this)
-    private val mPingManager = PingManager()
+    private val aroManager = AroManager()
+    private val mFrame:RelativeLayout by lazy { findViewById(R.id.imageFrame) as RelativeLayout }
 
     private lateinit var statusTracker: StatusTracker
 
@@ -40,6 +42,10 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, St
         } else {
             statusTracker = retrievedTracker
             setImage(statusTracker.currentHandout, true)
+            (findViewById(R.id.name_display) as? TextView)?.text = statusTracker.name
+            for (marker in statusTracker) {
+                aroManager.placeMarker(this, mFrame, marker)
+            }
         }
 
         setContentView(R.layout.activity_comlink)
@@ -62,7 +68,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, St
         findViewById(R.id.send_Text).setOnClickListener(mSendTextListener)
         mSendTextListener.registerEditor((findViewById(R.id.sendTextEdit) as EditText))
 
-        PingListener().listen(findViewById(R.id.imageFrame))
+        AroListener().listen(findViewById(R.id.imageFrame))
 
 		MatrixService.start(this.applicationContext)
     }
@@ -78,7 +84,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, St
             val imageUri = data?.data ?: return
             val button = findViewById(R.id.send_image) as Button
 
-            button.setOnClickListener(View.OnClickListener { eventBus.post(StatusEvent(StatusTracker.ABORTING)) })
+            button.setOnClickListener({ eventBus.post(StatusEvent(StatusTracker.STATUS_ABORTING)) })
             eventBus.post(ImageEvent(imageUri,MessagePacket.COMLINK))
             button.text = "0 x gesendet"
             setImage(imageUri)
@@ -91,24 +97,35 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, St
     @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onImageEvent(imageUri: ImageEvent) {
         if (imageUri.source == MessagePacket.COMLINK) return
-        setImage(imageUri.image)
-        if (statusTracker.lastEvent.status == StatusTracker.IDLE)
+        try {
+            setImage(imageUri.image)
+        } catch (e: Exception) {
+            Toast.makeText(this,e.message,Toast.LENGTH_LONG).show()
+        }
+
+        if (statusTracker.lastEvent.status == StatusTracker.STATUS_IDLE)
             findViewById(R.id.send_image).isEnabled = false
     }
 
     fun setImage(image: Uri, oneShot: Boolean = false) {
-        (findViewById(R.id.imageView) as ImageView).setImageURI(image)
+        try { // Debug only
+            (findViewById(R.id.imageView) as ImageView).setImageURI(image)
+        } catch (e: Exception) {
+            Toast.makeText(this,e.message,Toast.LENGTH_LONG).show()
+            return
+        }
         if (!oneShot) statusTracker.currentHandout = image
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onMessageEvent(messagePacket: MessagePacket) {
         if (messagePacket.source == MessagePacket.COMLINK) return
-        val frame = findViewById(R.id.imageFrame) as RelativeLayout
+        val coords = AroCoordinates(messagePacket.message)
         when (messagePacket.type) {
             MatrixConnection.TEXT_MESSAGE -> Toast.makeText(this, messagePacket.message, Toast.LENGTH_SHORT).show()
-            MatrixConnection.PING -> mPingManager.placePing(this,frame,messagePacket.message)
-            MatrixConnection.MARKER -> mPingManager.placeMarker(this,frame,messagePacket.message)
+            MatrixConnection.PING -> aroManager.placePing(this,mFrame,coords)
+            MatrixConnection.MARKER -> aroManager.placeMarker(this,mFrame,coords)
+            MatrixConnection.REMOVE_MARKER -> aroManager.removeMarker(mFrame, coords)
         }
     }
 
@@ -118,15 +135,15 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, St
         val toggleButton = findViewById(R.id.toggle_text_input) as Button
         // ToDo die folgenden Strings als String Ressource
         when (statusEvent.status) {
-            StatusTracker.PROGRESS -> {
+            StatusTracker.STATUS_PROGRESS -> {
                 button.text = statusEvent.text + " x gesendet"
             }
 
-            StatusTracker.ABORTING -> {
+            StatusTracker.STATUS_ABORTING -> {
                 button.text = "Warte auf Abbruch.."
                 button.isEnabled = false
             }
-            StatusTracker.IDLE -> {
+            StatusTracker.STATUS_IDLE -> {
                 button.text = "Send File"
                 button.isEnabled = true
                 button.setOnClickListener(sendListener)
@@ -134,6 +151,10 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener, St
             }
         }
         statusTracker.lastEvent = statusEvent
+    }
+
+    override fun onKillEvent(event: KillEvent) {
+        finish()
     }
 
     override fun onStop(){

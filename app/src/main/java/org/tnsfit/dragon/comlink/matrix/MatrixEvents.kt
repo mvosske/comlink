@@ -25,3 +25,8 @@ data class StatusEvent(val status: Int, val text:String = "")
 interface StatusEventListener {
 	fun onStatusEvent(statusEvent: StatusEvent)
 }
+
+data class KillEvent(val source:Int = MessagePacket.MATRIX)
+interface KillEventListener {
+	fun onKillEvent(event: KillEvent)
+}

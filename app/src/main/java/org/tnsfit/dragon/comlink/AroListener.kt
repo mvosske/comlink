@@ -13,7 +13,7 @@ import org.tnsfit.dragon.comlink.matrix.MessagePacket
  *
  */
 
-class PingListener(): View.OnLongClickListener, View.OnTouchListener, View.OnClickListener {
+class AroListener(): View.OnLongClickListener, View.OnTouchListener, View.OnClickListener {
     private val eventBus: EventBus by lazy {
         EventBus.getDefault()
     }

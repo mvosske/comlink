@@ -56,7 +56,8 @@ class SendText(c: ComlinkActivity): TextView.OnEditorActionListener, View.OnClic
         val statusTracker = eventBus.getStickyEvent(StatusTracker::class.java)
         if (mode == NAME) {
             statusTracker.name = textField.toString()
-            eventBus.post(StatusEvent(StatusTracker.IDLE))
+            (mMaster.findViewById(R.id.name_display) as? TextView)?.setText(statusTracker.name)
+            eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE))
         } else {
             val message = statusTracker.name + ": \"" + textField + "\""
             eventBus.post(MessagePacket(MatrixConnection.TEXT_MESSAGE, message, MessagePacket.COMLINK))
