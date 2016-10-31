@@ -1,6 +1,7 @@
 package org.tnsfit.dragon.comlink
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Handler
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -11,15 +12,18 @@ import java.util.*
  * Pings sind kurzeitiger Anzeiger
  * Marker sind Dauerhafte Anzeiger
  * Pings und Marker sind zusammen AROs
+ *
+ * X und Y sind in Bezug auf Portrait, also Invertierung für Landscape
  */
 
 
-class AroManager {
+class AroManager() {
 
     private val mHandler: Handler
     private val mPingList: MutableList<ImageView> = LinkedList()
     private val mMarkerList: MutableList<ImageView> = LinkedList()
     private val deleteListener: AroDeleter = AroDeleter()
+    var orientation: Int = Configuration.ORIENTATION_PORTRAIT
 
     init {
         mHandler = Handler()
@@ -55,20 +59,20 @@ class AroManager {
 
     fun placePing(c: Context, frame: ViewGroup, coords: AroCoordinates) {
         val view = getPing(c)
-        frame.addView(view, coords.layoutParams(frame))
+        frame.addView(view, coords.layoutParams(frame,orientation))
         mHandler.postDelayed(deleteListener.OnTime(view), 4000)
     }
 
     fun placeMarker (c: Context, frame: ViewGroup, coords: AroCoordinates) {
         val view = getMarker(c)
         view.tag = coords
-        frame.addView(view, coords.layoutParams(frame))
+        frame.addView(view, coords.layoutParams(frame,orientation))
     }
 
     fun removeMarker(frame: ViewGroup, coords: AroCoordinates) {
         for (i in 0..frame.childCount-1) {
             val child = frame.getChildAt(i)
-            if (child.tag.equals(coords)) {
+            if (coords.equals(child.tag)) {
                 frame.removeViewAt(i)
                 child.tag = null
             }

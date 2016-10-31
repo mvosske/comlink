@@ -2,6 +2,8 @@ package org.tnsfit.dragon.comlink
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
@@ -35,6 +37,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        aroManager.orientation = getResources().getConfiguration().orientation
         val retrievedTracker = eventBus.getStickyEvent(StatusTracker::class.java)
         if (retrievedTracker == null) {
             statusTracker = StatusTracker()
@@ -68,7 +71,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         findViewById(R.id.send_Text).setOnClickListener(mSendTextListener)
         mSendTextListener.registerEditor((findViewById(R.id.sendTextEdit) as EditText))
 
-        AroListener().listen(findViewById(R.id.imageFrame))
+        AroPlacementListener().listen(findViewById(R.id.imageFrame))
 
 		MatrixService.start(this.applicationContext)
     }
@@ -108,13 +111,33 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
     }
 
     fun setImage(image: Uri, oneShot: Boolean = false) {
-        try { // Debug only
-            (findViewById(R.id.imageView) as ImageView).setImageURI(image)
-        } catch (e: Exception) {
-            Toast.makeText(this,e.message,Toast.LENGTH_LONG).show()
-            return
-        }
+        // (findViewById(R.id.imageView) as ImageView).setImageURI(image)
+        (findViewById(R.id.imageView) as ImageView).setImageBitmap(decodeUri(image))
         if (!oneShot) statusTracker.currentHandout = image
+    }
+
+    private fun decodeUri(selectedImage: Uri): Bitmap {
+        val o = BitmapFactory.Options()
+        o.inJustDecodeBounds = true
+        BitmapFactory.decodeStream(contentResolver.openInputStream(selectedImage), null, o)
+
+        val REQUIRED_SIZE = 100
+
+        var width_tmp = o.outWidth
+        var height_tmp = o.outHeight
+        var scale = 1
+        while (true) {
+            if (width_tmp / 2 < REQUIRED_SIZE || height_tmp / 2 < REQUIRED_SIZE) {
+                break
+            }
+            width_tmp /= 2
+            height_tmp /= 2
+            scale *= 2
+        }
+
+        val o2 = BitmapFactory.Options()
+        o2.inSampleSize = scale
+        return BitmapFactory.decodeStream(contentResolver.openInputStream(selectedImage), null, o2)
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

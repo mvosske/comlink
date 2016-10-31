@@ -21,7 +21,9 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/name_display" />
+            android:id="@+id/name_display"
+            android:textColor="#be1e1e"
+            android:shadowColor="#db6c2323" />
 
         <LinearLayout
             android:id="@+id/fullscreen_content_controls"
