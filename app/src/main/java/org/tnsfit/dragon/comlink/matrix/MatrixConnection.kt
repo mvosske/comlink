@@ -1,12 +1,13 @@
 package org.tnsfit.dragon.comlink.matrix
 
-import android.net.Uri
 import android.util.Log
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import java.io.*
-import java.net.*
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.NetworkInterface
+import java.net.SocketException
 
 /**
  * Created by dragon on 04.10.16.
@@ -15,7 +16,7 @@ import java.net.*
 
 // Todo Implementiere "Auf Schleichfahrt" welches alle nachrichten nur an die schickt, die NICHT das Handout geliefert haben
 
-class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File):
+class MatrixConnection():
         MessageEventListener {
 
     companion object {
@@ -89,44 +90,16 @@ class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File):
 
             mAddressPool.confirm(packet.address)
 
-            val content = MessagePacketFactory(packet.data,MessagePacket.MATRIX)
+            val content = MessagePacketFactory(packet.data, MessagePacket.MATRIX)
 
             when (content.type) {
                 ANSWER -> return
-                HELLO -> eventBus.post(MessagePacket(ANSWER,"",MessagePacket.COMLINK))
-                SEND -> receiveFile(content.message)
+                HELLO -> eventBus.post(MessagePacket(ANSWER, "", MessagePacket.COMLINK))
+                SEND -> eventBus.post(DownloadEvent(packet.address, content.message, MessagePacket.MATRIX))
                 PING,
                 MARKER,
                 TEXT_MESSAGE -> eventBus.post(content)
             }
-        }
-
-        private fun receiveFile(message: String) {
-            // ToDo Nachfragen ob der Empfgang genehmigt ist
-            val outFile = File(workingDirectory, message)
-            try {
-                val clientSocket = Socket(packet.address, 24321)
-                socketPool.registerSocket(clientSocket)
-                val inStream: BufferedInputStream = clientSocket.inputStream.buffered()
-                val outStream = BufferedOutputStream(FileOutputStream(outFile, false))
-
-                val buffer = ByteArray(8192)
-                var len: Int
-
-                while (true) {
-                    len = inStream.read(buffer)
-                    if (len < 0) break
-                    outStream.write(buffer,0,len)
-                }
-                inStream.close()
-                outStream.flush()
-                outStream.close()
-                clientSocket.close()
-                socketPool.unregisterSocket(clientSocket)
-            } catch (e: IOException) {
-                // ToDo Toast Info and let it fail
-            }
-            eventBus.post(ImageEvent(Uri.fromFile(outFile), MessagePacket.MATRIX))
         }
     }
 

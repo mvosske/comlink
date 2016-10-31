@@ -19,7 +19,7 @@ import org.tnsfit.dragon.comlink.misc.registerIfRequired
  */
 
 
-class MatrixService: Service(), ImageEventListener, KillEventListener {
+class MatrixService: Service(), ImageEventListener, KillEventListener, DownloadEventListener {
 
 	companion object {
 		fun start(context: Context) {
@@ -28,7 +28,7 @@ class MatrixService: Service(), ImageEventListener, KillEventListener {
 	}
 
 	private val socketPool = SocketPool()
-	private val mMatrix: MatrixConnection by lazy { MatrixConnection(socketPool,getExternalFilesDir(null)) }
+	private val mMatrix: MatrixConnection by lazy { MatrixConnection() }
 	private val notificationManager: NotificationManagerCompat by lazy { NotificationManagerCompat.from(applicationContext) }
 	private val notificationId = AppConstants.NOTIFICATION_ID_SERVICE_ALIVE
 
@@ -86,7 +86,14 @@ class MatrixService: Service(), ImageEventListener, KillEventListener {
 		if (event.source == MessagePacket.COMLINK) stopForeground(false)
 	}
 
-	@Subscribe(threadMode = ThreadMode.ASYNC)
+	@Subscribe(threadMode = ThreadMode.BACKGROUND)
+	override fun onDownloadEvent(event: DownloadEvent) {
+		if (event.source == MessagePacket.COMLINK) {
+			RetrieveAgent(socketPool, event, getExternalFilesDir(null)).start()
+		}
+	}
+
+	@Subscribe(threadMode = ThreadMode.BACKGROUND)
 	override fun onImageEvent(imageUri: ImageEvent) {
 		if (imageUri.source == MessagePacket.COMLINK) {
 			SendAgent(socketPool, contentResolver.openInputStream(imageUri.image)).start()

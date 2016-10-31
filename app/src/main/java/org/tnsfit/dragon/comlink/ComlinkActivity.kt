@@ -17,7 +17,7 @@ import org.tnsfit.dragon.comlink.misc.AppConstants
 import org.tnsfit.dragon.comlink.misc.registerIfRequired
 
 class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
-        StatusEventListener, KillEventListener {
+        StatusEventListener, KillEventListener, DownloadEventListener {
 
 	private val eventBus = EventBus.getDefault()
     private val mSendTextListener = SendText(this)
@@ -95,6 +95,13 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
             super.onActivityResult(requestCode, resultCode, data)
         }
     }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    override fun onDownloadEvent(event: DownloadEvent) {
+        if (event.source != MessagePacket.MATRIX) return
+        DownloadDialog(this,event.address, event.destination).create().show()
+    }
+
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onImageEvent(imageUri: ImageEvent) {

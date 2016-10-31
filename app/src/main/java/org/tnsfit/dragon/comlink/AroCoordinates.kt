@@ -58,6 +58,8 @@ fun AroCoordinates(coordsString: String): AroCoordinates {
         y = coords[1].toInt()
     } catch (ie: IndexOutOfBoundsException) {
         // Standarwerte wurden festgelegt, keine Behandlung notwendig
+    } catch (nfe: NumberFormatException) {
+        // Auch hier die Standardwerte benutzen und alles wird gut
     }
 
     return AroCoordinates(x,y)

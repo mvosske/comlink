@@ -1,6 +1,7 @@
 package org.tnsfit.dragon.comlink.matrix
 
 import android.net.Uri
+import java.net.InetAddress
 
 /**
  * @author eric.neidhardt on 17.10.2016.
@@ -16,9 +17,14 @@ interface MessageEventListener {
 }
 
 // ein Bild zur Anzeige steht zur Verfügung
-data class ImageEvent(val image: Uri, val source:Int = MessagePacket.NONE)
+data class ImageEvent(val image: Uri, val source:Int)
 interface ImageEventListener {
 	fun onImageEvent(imageUri: ImageEvent)
+}
+
+data class DownloadEvent(val address: InetAddress, val destination: String, val source: Int)
+interface DownloadEventListener {
+	fun onDownloadEvent(event: DownloadEvent)
 }
 
 data class StatusEvent(val status: Int, val text:String = "")

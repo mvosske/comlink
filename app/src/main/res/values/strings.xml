@@ -7,4 +7,6 @@
 	<string name="matrix_service_notification_title">Matrix Verbindung</string>
 	<string name="matrix_service_notification_action_shutdown">Auf Schleichfahrt gehen</string>
 	<string name="matrix_service_notification_action_restart">Schleichfahrt beenden</string>
+
+    <string name="ui_dialog_question_download"> möchte eine Datei schicken\nDatei empfangen?</string>
 </resources>
