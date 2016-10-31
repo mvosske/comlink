@@ -5,7 +5,7 @@ package org.tnsfit.dragon.comlink.misc
  */
 object AppConstants {
 
-	val NOTIFICATION_ID_SERVICE_ALIVE = 0
+	val NOTIFICATION_ID_SERVICE_ALIVE = 1
 
 	val INTENT_REQUEST_NOTIFICATION_DISMISS = 0
 	val INTENT_REQUEST_NOTIFICATION_OPEN = 1

@@ -19,7 +19,7 @@ import org.tnsfit.dragon.comlink.misc.registerIfRequired
  */
 
 
-class MatrixService: Service(), ImageEventListener {
+class MatrixService: Service(), ImageEventListener, KillEventListener {
 
 	companion object {
 		fun start(context: Context) {
@@ -38,7 +38,8 @@ class MatrixService: Service(), ImageEventListener {
 		override fun onReceive(context: Context, intent: Intent) {
 			intent.action?.let { action ->
 				if (action == ServiceNotification.NOTIFICATION_ACTION_DISMISS) {
-					eventBus.post(KillEvent())
+					eventBus.post(KillEvent(MessagePacket.MATRIX))
+					this@MatrixService.eventBus.removeAllStickyEvents()
 					this@MatrixService.stopSelf()
 				}
 			}
@@ -47,8 +48,8 @@ class MatrixService: Service(), ImageEventListener {
 
 	override fun onCreate() {
 		super.onCreate()
-		this.notificationManager.notify(notificationId,
-				ServiceNotification.buildNotificationServiceAlive(this.applicationContext).build())
+		//this.notificationManager.notify(notificationId,
+		//		ServiceNotification.buildNotificationServiceAlive(this.applicationContext).build())
 
 		this.registerReceiver(this.notificationActionReceiver, ServiceNotification.filter)
 
@@ -67,12 +68,23 @@ class MatrixService: Service(), ImageEventListener {
 		this.mMatrix.stop()
 		socketPool.closeAllSockets()
 
+		this.notificationManager.cancel(AppConstants.NOTIFICATION_ID_SERVICE_ALIVE)
 		// this.notificationManager.notify(notificationId, ServiceNotification.buildNotificationServiceNotAlive(this.applicationContext).build())
 		super.onDestroy()
 	}
 
-	override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+	override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+		startForeground(notificationId,
+				ServiceNotification.buildNotificationServiceAlive(this.applicationContext).build())
+		return START_NOT_STICKY
+	}
+
 	override fun onBind(intent: Intent): IBinder? = null
+
+	@Subscribe
+	override fun onKillEvent(event: KillEvent) {
+		if (event.source == MessagePacket.COMLINK) stopForeground(false)
+	}
 
 	@Subscribe(threadMode = ThreadMode.ASYNC)
 	override fun onImageEvent(imageUri: ImageEvent) {

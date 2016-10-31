@@ -13,7 +13,7 @@ import java.net.*
  *
  */
 
-// Todo Implementiere "Auf Schleichfahrt" welches alle nachrichten nur an die schickt, die NICHT das Handout geliefert ahben
+// Todo Implementiere "Auf Schleichfahrt" welches alle nachrichten nur an die schickt, die NICHT das Handout geliefert haben
 
 class MatrixConnection(val socketPool: SocketPool, val workingDirectory: File):
         MessageEventListener {

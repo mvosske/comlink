@@ -25,7 +25,7 @@ class StatusTracker(): MessageEventListener,Iterable<AroCoordinates> {
     }
 
     var lastEvent: StatusEvent = StatusEvent(STATUS_BLOCKED)
-    var currentHandout: Uri = Uri.parse("android.resource://org.tnsfit.dragon.comlink/R.drawable.empty_image")
+    var currentHandout: Uri = Uri.parse("android.resource://org.tnsfit.dragon.comlink/drawable/empty_image")
     var name: String = ""
     private val markerList: MutableList<AroCoordinates> = LinkedList()
 

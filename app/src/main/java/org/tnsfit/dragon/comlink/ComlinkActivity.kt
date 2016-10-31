@@ -36,6 +36,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_comlink)
 
         aroManager.orientation = getResources().getConfiguration().orientation
         val retrievedTracker = eventBus.getStickyEvent(StatusTracker::class.java)
@@ -50,8 +51,6 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
                 aroManager.placeMarker(this, mFrame, marker)
             }
         }
-
-        setContentView(R.layout.activity_comlink)
 
         findViewById(R.id.exit_button).setOnClickListener({ finish() })
         findViewById(R.id.send_image).setOnClickListener(sendListener)
@@ -176,6 +175,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         statusTracker.lastEvent = statusEvent
     }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onKillEvent(event: KillEvent) {
         finish()
     }
@@ -183,6 +183,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
     override fun onStop(){
         super.onStop()
 		this.eventBus.unregister(this)
+        this.eventBus.post(KillEvent(MessagePacket.COMLINK))
     }
 
     override fun onDestroy() {
