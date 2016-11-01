@@ -13,7 +13,7 @@ import org.tnsfit.dragon.comlink.matrix.MessagePacket
  *
  */
 
-class AroPlacementListener(): View.OnLongClickListener, View.OnTouchListener, View.OnClickListener {
+class AroPlacementListener(val imageDimension: ImageDimensions): View.OnLongClickListener, View.OnTouchListener, View.OnClickListener {
     private val eventBus: EventBus by lazy {
         EventBus.getDefault()
     }
@@ -24,24 +24,27 @@ class AroPlacementListener(): View.OnLongClickListener, View.OnTouchListener, Vi
     override fun onTouch(v: View?, event: MotionEvent?): Boolean {
         if ((v == null) || (event == null)) return false
 
-        mLastTouchX = (event.x*100/v.width).toInt()
-        mLastTouchY = (event.y*100/v.height).toInt()
+        // Pixel-Koordinaten auf dem Bild ausrechen
+        val realX = event.x -imageDimension.x
+        val realY = event.y -imageDimension.y
+
+        // Prozentuale Position auf dem Bild ausrechnen
+        mLastTouchX = (realX*100/imageDimension.width).toInt()
+        mLastTouchY = (realY*100/imageDimension.height).toInt()
 
         return false
     }
 
+    private fun coordString(): String {
+        return mLastTouchX.toString()+","+mLastTouchY.toString()
+    }
+
     override fun onClick(v: View?) {
-        eventBus.post(MessagePacket(
-                MatrixConnection.PING,
-                mLastTouchX.toString()+","+mLastTouchY.toString())
-        )
+        eventBus.post(MessagePacket(MatrixConnection.PING,coordString()))
     }
 
     override fun onLongClick(v: View?): Boolean {
-        eventBus.post(MessagePacket(
-                MatrixConnection.MARKER,
-                mLastTouchX.toString()+","+mLastTouchY.toString())
-        )
+        eventBus.post(MessagePacket(MatrixConnection.MARKER, coordString()))
         return true
     }
 

@@ -2,6 +2,7 @@ package org.tnsfit.dragon.comlink
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
@@ -21,8 +22,10 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
 	private val eventBus = EventBus.getDefault()
     private val mSendTextListener = SendText(this)
-    private val aroManager = AroManager()
+    private val imageDimensions = ImageDimensions()
+    private val aroManager = AroManager(imageDimensions)
     private val mFrame:RelativeLayout by lazy { findViewById(R.id.imageFrame) as RelativeLayout }
+    private val mainImageView: ImageView by lazy { findViewById(R.id.main_image_view) as ImageView }
 
     private lateinit var statusTracker: StatusTracker
 
@@ -38,14 +41,13 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_comlink)
 
-        aroManager.orientation = getResources().getConfiguration().orientation
         val retrievedTracker = eventBus.getStickyEvent(StatusTracker::class.java)
         if (retrievedTracker == null) {
             statusTracker = StatusTracker()
             eventBus.postSticky(statusTracker)
         } else {
             statusTracker = retrievedTracker
-            setImage(statusTracker.currentHandout, true)
+            setImage(statusTracker.currentHandout)
             (findViewById(R.id.name_display) as? TextView)?.text = statusTracker.name
             for (marker in statusTracker) {
                 aroManager.placeMarker(this, mFrame, marker)
@@ -70,15 +72,16 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         findViewById(R.id.send_Text).setOnClickListener(mSendTextListener)
         mSendTextListener.registerEditor((findViewById(R.id.sendTextEdit) as EditText))
 
-        AroPlacementListener().listen(findViewById(R.id.imageFrame))
 
-		MatrixService.start(this.applicationContext)
+        //AroPlacementListener().listen(findViewById(R.id.imageFrame))
+        AroPlacementListener(this.imageDimensions).listen(mainImageView)
+        GlobalLayoutListener(imageDimensions,aroManager,mainImageView).register()
+        MatrixService.start(this.applicationContext)
     }
 
     override fun onStart() {
         super.onStart()
 		this.eventBus.registerIfRequired(this)
-
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -94,6 +97,43 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         } else {
             super.onActivityResult(requestCode, resultCode, data)
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration?) {
+        super.onConfigurationChanged(newConfig)
+        imageDimensions.changePending = true
+    }
+
+    fun setImage(image: Uri) {
+        // (findViewById(R.id.imageView) as ImageView).setImageURI(image)
+
+        mainImageView.setImageBitmap(decodeUri(image))
+        statusTracker.currentHandout = image
+        imageDimensions.changePending = true
+    }
+
+    private fun decodeUri(selectedImage: Uri): Bitmap {
+        val o = BitmapFactory.Options()
+        o.inJustDecodeBounds = true
+        BitmapFactory.decodeStream(contentResolver.openInputStream(selectedImage), null, o)
+
+        val REQUIRED_SIZE = 1000
+
+        var width_tmp = o.outWidth
+        var height_tmp = o.outHeight
+        var scale = 1
+        while (true) {
+            if (width_tmp / 2 < REQUIRED_SIZE || height_tmp / 2 < REQUIRED_SIZE) {
+                break
+            }
+            width_tmp /= 2
+            height_tmp /= 2
+            scale *= 2
+        }
+
+        val o2 = BitmapFactory.Options()
+        o2.inSampleSize = scale
+        return BitmapFactory.decodeStream(contentResolver.openInputStream(selectedImage), null, o2)
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -114,36 +154,6 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
         if (statusTracker.lastEvent.status == StatusTracker.STATUS_IDLE)
             findViewById(R.id.send_image).isEnabled = false
-    }
-
-    fun setImage(image: Uri, oneShot: Boolean = false) {
-        // (findViewById(R.id.imageView) as ImageView).setImageURI(image)
-        (findViewById(R.id.imageView) as ImageView).setImageBitmap(decodeUri(image))
-        if (!oneShot) statusTracker.currentHandout = image
-    }
-
-    private fun decodeUri(selectedImage: Uri): Bitmap {
-        val o = BitmapFactory.Options()
-        o.inJustDecodeBounds = true
-        BitmapFactory.decodeStream(contentResolver.openInputStream(selectedImage), null, o)
-
-        val REQUIRED_SIZE = 100
-
-        var width_tmp = o.outWidth
-        var height_tmp = o.outHeight
-        var scale = 1
-        while (true) {
-            if (width_tmp / 2 < REQUIRED_SIZE || height_tmp / 2 < REQUIRED_SIZE) {
-                break
-            }
-            width_tmp /= 2
-            height_tmp /= 2
-            scale *= 2
-        }
-
-        val o2 = BitmapFactory.Options()
-        o2.inSampleSize = scale
-        return BitmapFactory.decodeStream(contentResolver.openInputStream(selectedImage), null, o2)
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
