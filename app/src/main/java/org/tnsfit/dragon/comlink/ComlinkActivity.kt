@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -29,14 +28,6 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
     private lateinit var statusTracker: StatusTracker
 
-    val sendListener: View.OnClickListener by lazy {
-        View.OnClickListener {
-            val i = Intent(Intent.ACTION_GET_CONTENT)
-            i.type = "*/*"
-            startActivityForResult(i, AppConstants.INTENT_REQUEST_CONTENT)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_comlink)
@@ -55,25 +46,11 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         }
 
         findViewById(R.id.exit_button).setOnClickListener({ finish() })
-        findViewById(R.id.send_image).setOnClickListener(sendListener)
-        findViewById(R.id.toggle_text_input).setOnClickListener {
-            findViewById(R.id.send_text_controls)?.visibility = View.VISIBLE
-            val image: Drawable
-            if (statusTracker.name == "") {
-                image = getDrawable(android.R.drawable.ic_menu_save)
-                mSendTextListener.mode = SendText.NAME
-            } else {
-                image = getDrawable(android.R.drawable.ic_menu_share)
-                mSendTextListener.mode = SendText.TEXT
-            }
-            (findViewById(R.id.send_Text) as ImageButton).setImageDrawable(image)
-        }
-
         findViewById(R.id.send_Text).setOnClickListener(mSendTextListener)
+
+        mSendTextListener.registerToggleButton(findViewById(R.id.button_main_toggle_input) as Button)
         mSendTextListener.registerEditor((findViewById(R.id.sendTextEdit) as EditText))
 
-
-        //AroPlacementListener().listen(findViewById(R.id.imageFrame))
         AroPlacementListener(this.imageDimensions).listen(mainImageView)
         GlobalLayoutListener(imageDimensions,aroManager,mainImageView).register()
         MatrixService.start(this.applicationContext)
@@ -87,11 +64,16 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if ((requestCode == AppConstants.INTENT_REQUEST_CONTENT) && (resultCode == Activity.RESULT_OK)) {
             val imageUri = data?.data ?: return
-            val button = findViewById(R.id.send_image) as Button
+            val button = findViewById(R.id.button_main_send) as Button
 
-            button.setOnClickListener({ eventBus.post(StatusEvent(StatusTracker.STATUS_ABORTING)) })
+            button.setOnClickListener({
+                button.text = getText(R.string.information_main_sending_aborting)
+                button.isEnabled = false
+                button.setOnClickListener(null)
+                statusTracker.lastEvent = StatusEvent(StatusTracker.STATUS_ABORTING)
+            })
             eventBus.post(ImageEvent(imageUri,MessagePacket.COMLINK))
-            button.text = "0 x gesendet"
+            button.text = "0" + getText(R.string.information_main_count_sent)
             setImage(imageUri)
 
         } else {
@@ -101,7 +83,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
     override fun onConfigurationChanged(newConfig: Configuration?) {
         super.onConfigurationChanged(newConfig)
-        imageDimensions.changePending = true
+        imageDimensions.isChangePending = true
     }
 
     fun setImage(image: Uri) {
@@ -109,7 +91,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
         mainImageView.setImageBitmap(decodeUri(image))
         statusTracker.currentHandout = image
-        imageDimensions.changePending = true
+        imageDimensions.isChangePending = true
     }
 
     private fun decodeUri(selectedImage: Uri): Bitmap {
@@ -153,7 +135,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         }
 
         if (statusTracker.lastEvent.status == StatusTracker.STATUS_IDLE)
-            findViewById(R.id.send_image).isEnabled = false
+            findViewById(R.id.button_main_send).isEnabled = false
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -170,23 +152,27 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onStatusEvent(statusEvent: StatusEvent) {
-        val button = findViewById(R.id.send_image) as Button
-        val toggleButton = findViewById(R.id.toggle_text_input) as Button
-        // ToDo die folgenden Strings als String Ressource
+        val button = findViewById(R.id.button_main_send) as Button
+        val toggleButton = findViewById(R.id.button_main_toggle_input) as Button
         when (statusEvent.status) {
             StatusTracker.STATUS_PROGRESS -> {
-                button.text = statusEvent.text + " x gesendet"
+                button.text = statusEvent.text + getText(R.string.information_main_count_sent)
             }
 
             StatusTracker.STATUS_ABORTING -> {
-                button.text = "Warte auf Abbruch.."
+                button.text = getText(R.string.information_main_sending_aborting)
                 button.isEnabled = false
+                button.setOnClickListener(null)
             }
+
             StatusTracker.STATUS_IDLE -> {
-                button.text = "Send File"
+                button.text = getText(R.string.label_main_send)
                 button.isEnabled = true
-                button.setOnClickListener(sendListener)
-                toggleButton.text = "Nachricht"
+                button.setOnClickListener(View.OnClickListener {
+                        val i = Intent(Intent.ACTION_GET_CONTENT)
+                        i.type = "*/*"
+                        startActivityForResult(i, AppConstants.INTENT_REQUEST_CONTENT)
+                    })
             }
         }
         statusTracker.lastEvent = statusEvent

@@ -2,10 +2,7 @@ package org.tnsfit.dragon.comlink
 
 import android.net.Uri
 import org.greenrobot.eventbus.Subscribe
-import org.tnsfit.dragon.comlink.matrix.MatrixConnection
-import org.tnsfit.dragon.comlink.matrix.MessageEventListener
-import org.tnsfit.dragon.comlink.matrix.MessagePacket
-import org.tnsfit.dragon.comlink.matrix.StatusEvent
+import org.tnsfit.dragon.comlink.matrix.*
 import java.util.*
 
 /**
@@ -16,7 +13,7 @@ import java.util.*
  *
  */
 
-class StatusTracker(): MessageEventListener,Iterable<AroCoordinates> {
+class StatusTracker(): MessageEventListener, StatusEventListener, Iterable<AroCoordinates> {
     companion object {
         val STATUS_BLOCKED = 0
         val STATUS_IDLE = 1
@@ -37,6 +34,11 @@ class StatusTracker(): MessageEventListener,Iterable<AroCoordinates> {
                 if (marker.equals(messagePacket.aroCoordinates)) markerList.remove(marker)
             }
         }
+    }
+
+    @Subscribe
+    override fun onStatusEvent(statusEvent: StatusEvent) {
+        lastEvent = statusEvent
     }
 
     override fun iterator(): Iterator<AroCoordinates> {

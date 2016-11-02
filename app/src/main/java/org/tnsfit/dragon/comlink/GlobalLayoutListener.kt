@@ -20,9 +20,9 @@ class GlobalLayoutListener(
     }
 
     override fun onGlobalLayout() {
-        if (!imageDimensions.changePending) return
+        if (!imageDimensions.isChangePending) return
         imageDimensions.changeDimensions(imageView)
         aroManager.rePlaceMarker()
-        imageDimensions.changePending = false
+        imageDimensions.isChangePending = false
     }
 }

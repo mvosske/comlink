@@ -1,12 +1,20 @@
 <resources>
     <string name="app_name">Comlink</string>
-
-    <string name="exit_button">Exit</string>
-    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="app_description_background">Seattle Background</string>
+    <string name="app_description_handout">Handout</string>
 
 	<string name="matrix_service_notification_title">Matrix Verbindung</string>
 	<string name="matrix_service_notification_action_shutdown">Auf Schleichfahrt gehen</string>
 	<string name="matrix_service_notification_action_restart">Schleichfahrt beenden</string>
 
     <string name="ui_dialog_question_download"> möchte eine Datei schicken\nDatei empfangen?</string>
+    <string name="label_main_send">Datei senden</string>
+    <string name="label_main_name">Name eingeben</string>
+    <string name="label_main_message">Nachricht</string>
+    <string name="label_main_enter">Enter</string>
+    <string name="label_main_exit">Exit</string>
+
+    <string name="information_main_sending_aborting">Warte auf Abbruch..></string>
+    <string name="information_main_count_sent"> x gesendet</string>
+
 </resources>

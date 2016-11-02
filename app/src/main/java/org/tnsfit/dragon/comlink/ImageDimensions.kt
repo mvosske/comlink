@@ -15,7 +15,7 @@ class ImageDimensions(){
     var height: Int = 2
     var x: Int = 1
     var y: Int = 1
-    var changePending: Boolean = false
+    var isChangePending: Boolean = false
 
     fun changeDimensions(imageView: ImageView) {
         val drawable = imageView.drawable ?: return

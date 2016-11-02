@@ -2,9 +2,7 @@ package org.tnsfit.dragon.comlink.matrix
 
 import android.util.Log
 import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
 import org.tnsfit.dragon.comlink.StatusTracker
-import org.tnsfit.dragon.comlink.misc.registerIfRequired
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -16,7 +14,7 @@ import java.net.*
  *
  */
 
-class SendAgent(private val socketPool: SocketPool, private val dataInputStream: InputStream): Thread(), StatusEventListener {
+class SendAgent(private val socketPool: SocketPool, private val dataInputStream: InputStream): Thread() {
 
     private val eventBus = EventBus.getDefault()
     private val data: ByteArray
@@ -50,7 +48,7 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
 
     override fun run() {
         isRunning = true
-        eventBus.registerIfRequired(this)
+        val tracker = eventBus.getStickyEvent(StatusTracker::class.java)
         eventBus.post(StatusEvent(StatusTracker.STATUS_PROGRESS,"0"))
 
         server.reuseAddress = true
@@ -66,12 +64,16 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
             Thread(Transfer(transferSocket)).start()
 
         } catch (so: SocketException) {
-            // normal Abmelden, vmtlö wurde nur der Socket weggesch lossen
+            // normal Abmelden, vmtl. wurde nur der Socket weg geschlossen
+            isRunning = false
         } catch (timeout: SocketTimeoutException) {
             // expected to occur, continue loop till cancelled
         } catch (ioe: IOException) {
             ioe.printStackTrace() // unknown if it even gets thrown
-        }
+        } finally {
+            if (tracker?.lastEvent?.status == StatusTracker.STATUS_ABORTING) isRunning = false
+        } // </while>
+
         isRunning = false
         server.close()
         socketPool.unregisterSocket(server)
@@ -98,12 +100,4 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
 
         return byteBuffer.toByteArray()
     }
-
-    @Subscribe
-    override fun onStatusEvent(statusEvent: StatusEvent) {
-        if (statusEvent.status == StatusTracker.STATUS_ABORTING) {
-            isRunning = false
-        }
-    }
-
 }

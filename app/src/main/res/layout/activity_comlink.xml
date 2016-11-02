@@ -11,6 +11,7 @@
         android:scaleType="centerCrop"
         android:id="@+id/imageBackground"
         android:src="@drawable/seattle"
+        android:contentDescription="@string/app_description_background"
         android:layout_gravity="start|top" />
 
     <RelativeLayout
@@ -39,8 +40,9 @@
             <Button
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Datei senden"
-                android:id="@+id/send_image"
+                android:text=""
+                android:id="@+id/button_main_send"
+                style="?metaButtonBarButtonStyle"
                 android:enabled="false"
                 android:layout_weight="0.73" />
 
@@ -50,13 +52,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="0.73"
-                android:text="@string/exit_button" />
+                android:text="@string/label_main_exit" />
 
             <Button
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Name?"
-                android:id="@+id/toggle_text_input"
+                android:text=""
+                android:id="@+id/button_main_toggle_input"
+                style="?metaButtonBarButtonStyle"
                 android:layout_weight="0.73" />
 
         </LinearLayout>
@@ -68,10 +71,11 @@
             android:layout_above="@id/fullscreen_content_controls">
 
             <ImageView
+                android:contentDescription="@string/app_description_handout"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter"
-                android:id="@+id/imageView"
+                android:id="@+id/main_image_view"
                 android:layout_gravity="start|top" />
 
             <LinearLayout
@@ -97,16 +101,12 @@
                 <ImageButton
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:contentDescription="Enter"
+                    android:contentDescription="@string/label_main_enter"
                     android:src="@android:drawable/ic_menu_save"
                     android:labelFor="@id/sendTextEdit"
                     android:id="@+id/send_Text" />
 
             </LinearLayout>
-
-
         </RelativeLayout>
-
     </RelativeLayout>
-
 </FrameLayout>
