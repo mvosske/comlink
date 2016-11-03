@@ -18,6 +18,7 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
 
     private val eventBus = EventBus.getDefault()
     private val data: ByteArray
+    val tracker = eventBus.getStickyEvent(StatusTracker::class.java)
     val server:ServerSocket = ServerSocket()
     var isRunning: Boolean = false
     var count: Int = 0
@@ -37,9 +38,26 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
                 socket.close()
                 count++
                 eventBus.post(StatusEvent(StatusTracker.STATUS_PROGRESS, count.toString()))
+
+                val destinationAddress = socket.remoteSocketAddress as? InetSocketAddress ?:
+                        throw SocketException("Adress could not be found")
+                val newbiesAddress = destinationAddress.address
+                val outSocket = DatagramSocket()
+                socketPool.registerSocket(outSocket)
+
+                for (marker in tracker) {
+                    val message = MessagePacket(MatrixConnection.MARKER,marker.toString()).pack()
+                    val packet = DatagramPacket(message, message.size, newbiesAddress, 24322)
+                    outSocket.send(packet)
+                }
+
+                outSocket.close()
+                socketPool.unregisterSocket(outSocket)
             } catch (ioe: IOException) {
-                Log.e("SendAgentThread", "Something was Wrong: "+ioe.message)
+                Log.e("SendAgentThread", "Something was Wrong: " + ioe.message)
                 socket.close()
+            } catch (so: SocketException) {
+                Log.e("SendAgentThread", "could not Dispatch Marker: " + so.message)
             } finally {
                 socketPool.unregisterSocket(socket)
             }
@@ -48,7 +66,7 @@ class SendAgent(private val socketPool: SocketPool, private val dataInputStream:
 
     override fun run() {
         isRunning = true
-        val tracker = eventBus.getStickyEvent(StatusTracker::class.java)
+
         eventBus.post(StatusEvent(StatusTracker.STATUS_PROGRESS,"0"))
 
         server.reuseAddress = true

@@ -86,14 +86,14 @@
                 android:layout_alignParentStart="true"
                 android:layout_alignParentEnd="false"
                 android:id="@+id/send_text_controls"
-                android:visibility="visible">
+                android:visibility="gone">
 
                 <EditText
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:id="@+id/sendTextEdit"
+                    android:inputType="text"
                     android:imeOptions="actionSend"
-                    android:inputType="textShortMessage"
                     android:imeActionId="10"
                     android:layout_weight="1"
                     />

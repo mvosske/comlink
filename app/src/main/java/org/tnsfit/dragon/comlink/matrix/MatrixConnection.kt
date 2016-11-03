@@ -23,7 +23,6 @@ class MatrixConnection():
         val PING =   "Ping_at_XY"
         val MARKER = "Mark_at_XY"
         val REMOVE_MARKER = "Delete_XY_"
-        // Todo Event für entfernen von Markern
         val SEND =   "Take_this_"
         val HELLO =  "Hi_Chummer"
         val ANSWER = "Welcome__"
@@ -98,6 +97,7 @@ class MatrixConnection():
                 SEND -> eventBus.post(DownloadEvent(packet.address, content.message, MessagePacket.MATRIX))
                 PING,
                 MARKER,
+                REMOVE_MARKER,
                 TEXT_MESSAGE -> eventBus.post(content)
             }
         }

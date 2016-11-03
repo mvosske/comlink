@@ -1,13 +1,13 @@
 package org.tnsfit.dragon.comlink
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.widget.*
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
@@ -35,11 +35,15 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         val retrievedTracker = eventBus.getStickyEvent(StatusTracker::class.java)
         if (retrievedTracker == null) {
             statusTracker = StatusTracker()
+            val optionsEditor = getPreferences(Context.MODE_PRIVATE)
+            statusTracker.name = optionsEditor.getString(AppConstants.OPTION_NAME, "")
             eventBus.postSticky(statusTracker)
+            mSendTextListener.mode = SendText.NAME
         } else {
             statusTracker = retrievedTracker
             setImage(statusTracker.currentHandout)
             (findViewById(R.id.name_display) as? TextView)?.text = statusTracker.name
+            mSendTextListener.mode = SendText.MESSAGE
             for (marker in statusTracker) {
                 aroManager.placeMarker(this, mFrame, marker)
             }
@@ -49,7 +53,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         findViewById(R.id.send_Text).setOnClickListener(mSendTextListener)
 
         mSendTextListener.registerToggleButton(findViewById(R.id.button_main_toggle_input) as Button)
-        mSendTextListener.registerEditor((findViewById(R.id.sendTextEdit) as EditText))
+        mSendTextListener.registerEditor((findViewById(R.id.sendTextEdit) as EditText),statusTracker.name)
 
         AroPlacementListener(this.imageDimensions).listen(mainImageView)
         GlobalLayoutListener(imageDimensions,aroManager,mainImageView).register()
@@ -59,6 +63,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
     override fun onStart() {
         super.onStart()
 		this.eventBus.registerIfRequired(this)
+        mSendTextListener.applyMode()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -136,6 +141,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
 
         if (statusTracker.lastEvent.status == StatusTracker.STATUS_IDLE)
             findViewById(R.id.button_main_send).isEnabled = false
+        // ToDo else
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -153,7 +159,6 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
     @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onStatusEvent(statusEvent: StatusEvent) {
         val button = findViewById(R.id.button_main_send) as Button
-        val toggleButton = findViewById(R.id.button_main_toggle_input) as Button
         when (statusEvent.status) {
             StatusTracker.STATUS_PROGRESS -> {
                 button.text = statusEvent.text + getText(R.string.information_main_count_sent)
@@ -168,11 +173,11 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
             StatusTracker.STATUS_IDLE -> {
                 button.text = getText(R.string.label_main_send)
                 button.isEnabled = true
-                button.setOnClickListener(View.OnClickListener {
-                        val i = Intent(Intent.ACTION_GET_CONTENT)
-                        i.type = "*/*"
-                        startActivityForResult(i, AppConstants.INTENT_REQUEST_CONTENT)
-                    })
+                button.setOnClickListener {
+                    val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
+                    i.type = "image/*"
+                    startActivityForResult(i, AppConstants.INTENT_REQUEST_CONTENT)
+                }
             }
         }
         statusTracker.lastEvent = statusEvent

@@ -12,4 +12,6 @@ object AppConstants {
 	val INTENT_REQUEST_NOTIFICATION_RESTART_SERVICE = 2
 
 	val INTENT_REQUEST_CONTENT = 3
+
+	val OPTION_NAME = "Name"
 }

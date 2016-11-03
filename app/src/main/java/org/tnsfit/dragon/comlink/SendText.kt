@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.drawable.Drawable
 import android.view.KeyEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
@@ -14,14 +13,19 @@ import org.greenrobot.eventbus.EventBus
 import org.tnsfit.dragon.comlink.matrix.MatrixConnection
 import org.tnsfit.dragon.comlink.matrix.MessagePacket
 import org.tnsfit.dragon.comlink.matrix.StatusEvent
+import org.tnsfit.dragon.comlink.misc.AppConstants
 
 /**
  * Created by dragon on 11.10.16.
+ * Listener um Textnachrichten zu verschicken und den Namen einzugeben und zu speichern
  *
  */
 
-class SendText(c: ComlinkActivity): TextView.OnEditorActionListener, View.OnClickListener {
-    private var mMaster: ComlinkActivity
+class SendText(val mMaster: ComlinkActivity): TextView.OnEditorActionListener, View.OnClickListener {
+
+    val eventBus: EventBus by lazy { EventBus.getDefault() }
+    private val viewGroup: View by lazy { mMaster.findViewById(R.id.send_text_controls) }
+
     private var mEditText: EditText? = null
     var mode = NAME
 
@@ -30,79 +34,101 @@ class SendText(c: ComlinkActivity): TextView.OnEditorActionListener, View.OnClic
         val MESSAGE = R.string.label_main_message
     }
 
-    init {
-        mMaster = c
-    }
-
     override fun onEditorAction(v: TextView?, actionId: Int, event: KeyEvent?): Boolean {
 
         if (v == null || (v !is EditText)) return false
         val flagCheck = (event?.action ?: 0) and KeyEvent.FLAG_EDITOR_ACTION
         if (flagCheck != KeyEvent.FLAG_EDITOR_ACTION) return false
 
-        send()
-        hideGroup(v.parent as? ViewGroup)
+        submit()
         return true
     }
 
     override fun onClick(v: View?) {
         when (v?.id) {
             R.id.send_Text -> {
-                send()
-                hideGroup(v?.parent as? ViewGroup)
+                submit()
             }
 
             R.id.button_main_toggle_input -> {
-                mMaster.findViewById(R.id.send_text_controls)?.visibility = View.VISIBLE
-                val image: Drawable
                 if ((mMaster.findViewById(R.id.name_display) as? TextView)?.text ?: "" == "") {
-                    image = mMaster.getDrawable(android.R.drawable.ic_menu_save)
-                    mode = SendText.NAME
+                    applyMode(NAME)
                 } else {
-                    image = mMaster.getDrawable(android.R.drawable.ic_menu_share)
-                    mode = SendText.MESSAGE
+                    applyMode(MESSAGE)
                 }
-                (mMaster.findViewById(R.id.send_Text) as ImageButton).setImageDrawable(image)
+                viewGroup.visibility = View.VISIBLE
             }
         }
     }
 
-    private fun send() {
+    private fun submit() {
         val textInput = mEditText?.text ?: return
-        val toggleButton = (mMaster.findViewById(R.id.button_main_toggle_input) as? Button)
-        val eventBus = EventBus.getDefault()
         val statusTracker = eventBus.getStickyEvent(StatusTracker::class.java)
+
         if (mode == NAME) {
             statusTracker.name = textInput.toString()
-            if (statusTracker.name != "") {
-                (mMaster.findViewById(R.id.name_display) as? TextView)?.text = statusTracker.name
-                mode = MESSAGE
-                toggleButton?.text = mMaster.getText(MESSAGE)
-                eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE)) // war BLOCKED
-            }
+            if (statusTracker.name != "") saveName(statusTracker.name)
         } else {
             val message = statusTracker.name + ": \"" + textInput + "\""
             eventBus.post(MessagePacket(MatrixConnection.TEXT_MESSAGE, message, MessagePacket.COMLINK))
         }
+
         textInput.clear()
-    }
 
-    private fun hideGroup(group: ViewGroup?) {
-        val view = mMaster.currentFocus
-        if (view != null) {
+        // die Gruppe mit den Eingabekontrollen wieder verstecken
+        val focusView = mMaster.currentFocus
+        if (focusView != null) {
             val imm = mMaster.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(view.windowToken, 0)
+            imm.hideSoftInputFromWindow(focusView.windowToken, 0)
         }
-        group?.visibility = View.GONE
+        viewGroup.visibility = View.GONE
+
     }
 
-    fun registerEditor(editText: EditText) {
+    fun saveName(name: String) {
+
+        applyMode(MESSAGE)
+        (mMaster.findViewById(R.id.name_display) as? TextView)?.text = name
+
+        val optionsEditor = mMaster.getPreferences(Context.MODE_PRIVATE).edit()
+        optionsEditor.putString(AppConstants.OPTION_NAME, name).apply()
+
+        eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE)) // war BLOCKED
+    }
+
+    fun applyMode(newMode: Int = mode) {
+        mode = newMode
+        applyMode()
+    }
+    fun applyMode() {
+
+        (mMaster.findViewById(R.id.button_main_toggle_input) as? Button)?.text = mMaster.getText(mode)
+        val image: Drawable
+
+        when (mode) {
+            NAME -> {
+                image = mMaster.getDrawable(android.R.drawable.ic_menu_save)
+                viewGroup.visibility = View.VISIBLE
+                // eventBus.post(StatusEvent(StatusTracker.STATUS_BLOCKED))
+            }
+            MESSAGE -> {
+                image = mMaster.getDrawable(android.R.drawable.ic_menu_share)
+                eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE))
+            }
+            else -> image = mMaster.getDrawable(R.drawable.empty_image)
+        }
+        (mMaster.findViewById(R.id.send_Text) as ImageButton).setImageDrawable(image)
+    }
+
+    fun registerEditor(editText: EditText, startValue: String = "") {
         editText.setOnEditorActionListener(this)
         mEditText = editText
+        mEditText?.setText(startValue)
     }
 
     fun registerToggleButton(button: Button) {
         button.setOnClickListener(this)
         button.text = mMaster.getText(mode)
+        this.onClick(null)
     }
 }
