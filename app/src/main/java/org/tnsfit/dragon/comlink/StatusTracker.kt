@@ -42,7 +42,7 @@ class StatusTracker(): MessageEventListener, StatusEventListener, ImageEventList
         }
     }
 
-    @Subscribe
+    @Subscribe()
     override fun onStatusEvent(statusEvent: StatusEvent) {
         lastEvent = statusEvent
         if (statusEvent.status == STATUS_PROGRESS) operationMode = MODE_JOHNSON

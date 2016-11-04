@@ -35,6 +35,7 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
         val retrievedTracker = eventBus.getStickyEvent(StatusTracker::class.java)
         if (retrievedTracker == null) {
             statusTracker = StatusTracker()
+            eventBus.registerIfRequired(statusTracker)
             val optionsEditor = getPreferences(Context.MODE_PRIVATE)
             statusTracker.name = optionsEditor.getString(AppConstants.OPTION_NAME, "")
             eventBus.postSticky(statusTracker)
@@ -126,6 +127,8 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
     @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onDownloadEvent(event: DownloadEvent) {
         if (event.source != MessagePacket.MATRIX) return
+        if (statusTracker.operationMode == StatusTracker.MODE_JOHNSON) return
+
         DownloadDialog(this,event.address, event.destination).create().show()
     }
 
@@ -139,9 +142,11 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
             Toast.makeText(this,e.message,Toast.LENGTH_LONG).show()
         }
 
-        if (statusTracker.lastEvent.status == StatusTracker.STATUS_IDLE)
-            findViewById(R.id.button_main_send).isEnabled = false
-        // ToDo else
+        if (statusTracker.lastEvent.status == StatusTracker.STATUS_IDLE) {
+            val sendButton = findViewById(R.id.button_main_send) as Button
+            sendButton.isEnabled = false
+            sendButton.text = ""
+        }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -180,12 +185,11 @@ class ComlinkActivity : Activity(), MessageEventListener, ImageEventListener,
                 }
             }
         }
-        statusTracker.lastEvent = statusEvent
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     override fun onKillEvent(event: KillEvent) {
-        finish()
+        if (event.source == MessagePacket.MATRIX) finish()
     }
 
     override fun onStop(){

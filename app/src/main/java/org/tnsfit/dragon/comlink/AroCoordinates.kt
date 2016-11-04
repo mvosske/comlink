@@ -14,16 +14,14 @@ class AroCoordinates(val x: Int, val y: Int) {
         val result = RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 RelativeLayout.LayoutParams.WRAP_CONTENT)
-        try {
-            val newX: Int = ((dimension.width * x) / 100) + dimension.x
-            val newY: Int = ((dimension.height * y) / 100)+ dimension.y
 
-            result.topMargin = newY - 50
-            result.leftMargin = newX - 50
+        // hier kann eine Number Format Exception kommen, wäre aber ein nicht-Fangbarer Laufzeitfehler
+        val newX: Int = ((dimension.width * x) / 100) + dimension.x
+        val newY: Int = ((dimension.height * y) / 100)+ dimension.y
 
-        } catch (e: NumberFormatException) {
-            // ToDo Report this Error;
-        }
+        result.topMargin = newY - 50
+        result.leftMargin = newX - 50
+
         return result
     }
 

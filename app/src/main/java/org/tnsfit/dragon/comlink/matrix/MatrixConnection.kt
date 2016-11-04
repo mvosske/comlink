@@ -14,8 +14,6 @@ import java.net.SocketException
  *
  */
 
-// Todo Implementiere "Auf Schleichfahrt" welches alle nachrichten nur an die schickt, die NICHT das Handout geliefert haben
-
 class MatrixConnection():
         MessageEventListener {
 
@@ -45,11 +43,10 @@ class MatrixConnection():
         override fun run() {
             synchronized(this@MatrixConnection) {
                 isRunning = true;
-            }
-
-            // First Time initialisation, to already be able to receive an "Answer" on "Hello"
-            if (mServer.isClosed) {
-                mServer = DatagramSocket(24322)
+                // First Time initialisation, to already be able to receive an "Answer" on "Hello"
+                if (mServer.isClosed) {
+                    mServer = DatagramSocket(24322)
+                }
             }
 
             eventBus.post(MessagePacket(HELLO,"",MessagePacket.COMLINK))
@@ -104,9 +101,11 @@ class MatrixConnection():
     }
 
     fun startServer() {
-        if (isRunning) return
-        val t = Thread(Server(), "UdpBroadcstReciever")
-        t.start()
+        synchronized(this) {
+            if (isRunning) return
+            val t = Thread(Server(), "UdpBroadcstReciever")
+            t.start()
+        }
     }
 
     fun stop() {

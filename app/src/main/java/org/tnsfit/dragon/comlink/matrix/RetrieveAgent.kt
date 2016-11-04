@@ -14,9 +14,10 @@ import java.net.Socket
 class RetrieveAgent(val socketPool: SocketPool, val downloadEvent: DownloadEvent, val workingDirectory: File): Thread() {
 
     override fun run() {
+        var success = true
         val outFile = File(workingDirectory, downloadEvent.destination)
         try {
-            val clientSocket = Socket(downloadEvent.address, 24321)
+            val clientSocket: Socket = Socket(downloadEvent.address, 24321)
             socketPool.registerSocket(clientSocket)
             val inStream: BufferedInputStream = clientSocket.inputStream.buffered()
             val outStream = BufferedOutputStream(FileOutputStream(outFile, false))
@@ -24,20 +25,29 @@ class RetrieveAgent(val socketPool: SocketPool, val downloadEvent: DownloadEvent
             val buffer = ByteArray(8192)
             var len: Int
 
-            while (true) {
+            try {while (true) {
                 len = inStream.read(buffer)
                 if (len < 0) break
                 outStream.write(buffer,0,len)
+            }} catch (ioe: IOException) {
+                success = false
             }
-            inStream.close()
+
             outStream.flush()
+            inStream.close()
             outStream.close()
             clientSocket.close()
             socketPool.unregisterSocket(clientSocket)
         } catch (e: IOException) {
-            // ToDo Sockets und Streams prüfen und ggf schliessen
-            return
+            success = false
         }
-        EventBus.getDefault().post(ImageEvent(Uri.fromFile(outFile), MessagePacket.MATRIX))
+        val eventBus = EventBus.getDefault()
+        if (success) {
+            eventBus.post(ImageEvent(Uri.fromFile(outFile), MessagePacket.MATRIX))
+        } else {
+            eventBus.post(MessagePacket(MatrixConnection.TEXT_MESSAGE,"Loading Image failed",MessagePacket.MATRIX))
+        }
+
+
     }
 }

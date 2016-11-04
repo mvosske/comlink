@@ -92,8 +92,6 @@ class SendText(val mMaster: ComlinkActivity): TextView.OnEditorActionListener, V
 
         val optionsEditor = mMaster.getPreferences(Context.MODE_PRIVATE).edit()
         optionsEditor.putString(AppConstants.OPTION_NAME, name).apply()
-
-        eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE)) // war BLOCKED
     }
 
     fun applyMode(newMode: Int = mode) {
@@ -113,7 +111,10 @@ class SendText(val mMaster: ComlinkActivity): TextView.OnEditorActionListener, V
             }
             MESSAGE -> {
                 image = mMaster.getDrawable(android.R.drawable.ic_menu_share)
-                eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE))
+
+                val tracker = eventBus.getStickyEvent(StatusTracker::class.java)
+                if (tracker.lastEvent.status == StatusTracker.STATUS_BLOCKED)
+                    eventBus.post(StatusEvent(StatusTracker.STATUS_IDLE))
             }
             else -> image = mMaster.getDrawable(R.drawable.empty_image)
         }
